@@ -1,0 +1,34 @@
+{
+    "manifest_version": 3,
+    "name": "Cook.it",
+    "version": "1.0",
+    "description": "Extract and format recipes from any website",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "storage",
+        "tabs"
+    ],
+    "host_permissions": [
+        "https://recipe01.onrender.com/*"
+    ],
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": "icon.png"
+    },
+    "content_scripts": [{
+        "matches": ["<all_urls>"],
+        "js": [
+            "content-ai.js",
+            "content-local.js",
+            "content.js"
+        ]
+    }],
+    "web_accessible_resources": [{
+        "resources": ["display.html", "display.js"],
+        "matches": ["<all_urls>"]
+    }],
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self'"
+    }
+}
