@@ -1,0 +1,295 @@
+:root {
+  /* Colors - Luxe Culinary Palette */
+  --primary: #FF5C00;
+  --primary-rgb: 255, 92, 0;
+  --primary-hover: #E65300;
+  --secondary: #1A1A1B;
+  --bg-main: #FFFFFF;
+  --bg-offset: #F8F9FA;
+  --text-main: #0B0E11;
+  --text-muted: #636E72;
+  --accent-gold: #FFB800;
+  
+  /* Glassmorphism & Effects */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: blur(12px);
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  
+  /* Sizing & Borders */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-full: 9999px;
+  
+  /* Typography */
+  --font-main: 'Noto Sans Hebrew', 'Inter', system-ui, sans-serif;
+  --direction: rtl;
+}
+
+[data-theme='dark'] {
+  --bg-main: #0B0E11;
+  --bg-offset: #15191E;
+  --text-main: #F5F6F7;
+  --text-muted: #94A3B8;
+  --glass-bg: rgba(15, 23, 42, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.05);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-family: var(--font-main);
+  direction: var(--direction);
+  min-height: 100vh;
+  line-height: 1.5;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* Layout */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* Header & Navigation */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-border);
+  padding: 1rem 0;
+}
+
+.nav-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--primary);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Typography Enhancements */
+h1 {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, var(--primary), var(--accent-gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Refined Glass Card */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+}
+
+/* Premium Component Grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+/* Ingredient Card Aesthetics */
+.ingredient-card {
+  padding: 1.5rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ingredient-card img {
+  width: 160px;
+  height: 160px;
+  object-fit: contain;
+  margin-bottom: 1rem;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.05));
+}
+
+.ingredient-card:hover img {
+  transform: scale(1.15) rotate(5deg);
+}
+
+.ingredient-card h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.ingredient-card.selected {
+  border: 2px solid var(--primary);
+  background: rgba(255, 92, 0, 0.05);
+}
+
+.ingredient-card.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: var(--primary);
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+/* Advanced Buttons */
+.btn {
+  padding: 0.875rem 2rem;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 4px 14px 0 rgba(255, 92, 0, 0.39);
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 92, 0, 0.23);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+/* Category Filters */
+.filters {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+  justify-content: center;
+}
+
+.filter-chip {
+  padding: 0.5rem 1.25rem;
+  border-radius: var(--radius-full);
+  background: var(--bg-offset);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.filter-chip:hover {
+  background: white;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.filter-chip.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+  }
+  
+  .ingredient-card img {
+    width: 120px;
+    height: 120px;
+  }
+  
+  .container {
+    padding: 1rem;
+  }
+  
+  h1 {
+    font-size: 2rem;
+  }
+}
+
+/* Micro-interactions */
+.pulse:hover {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}

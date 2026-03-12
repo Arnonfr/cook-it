@@ -1,0 +1,95 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String        @id @default(uuid())
+  email       String        @unique
+  preferences String        @default("{}") // JSON string for preferences
+  saved       SavedRecipe[]
+  collections Collection[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Recipe {
+  id               String        @id @default(uuid())
+  sourceUrl        String        @unique
+  parsedJson       String?       // JSON string of {title, ingredients: [], steps: []}
+  translatedJson   String?       // Hebrew-translated JSON if originally foreign
+  originalLanguage String?       // ISO 639-1 code: 'en', 'fr', 'he', etc.
+  parseStatus      String        @default("pending") // pending, parsed, failed
+  parsedAt         DateTime?
+  savedBy          SavedRecipe[]
+  collections      CollectionItem[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model SavedRecipe {
+  userId     String
+  recipeId   String
+  localNotes String?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe     Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([userId, recipeId])
+}
+
+model UrlCache {
+  urlHash     String   @id
+  parsedJson  String   // JSON string of preview data
+  lastFetched DateTime @default(now())
+}
+
+model SearchCache {
+  query       String   @id
+  resultsJson String   // JSON string of lightweight search results
+  updatedAt   DateTime @updatedAt
+}
+
+model IngredientImage {
+  name      String   @id // Normalized ingredient name
+  imageUrl  String
+  createdAt DateTime @default(now())
+}
+
+model Collection {
+  id          String           @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  image       String? // Cover image for the collection
+  isPublic    Boolean          @default(false)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       CollectionItem[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([userId, name])
+}
+
+model CollectionItem {
+  collectionId String
+  recipeId     String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@id([collectionId, recipeId])
+}
+
+model StepImage {
+  stepText  String   @id
+  imageUrl  String
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookit | עוזר הבישול החכם שלך</title>
+    <meta name="description" content="מצאו מתכונים מושלמים לפי מה שיש לכם במקרר.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="fade-in">
+    <nav class="glass container" style="margin-top: 1rem; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 1rem; z-index: 100;">
+        <div class="logo" style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">Cookit</div>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="btn" style="background: transparent; color: var(--text-main); font-size: 1.2rem;">🌓</button>
+        </div>
+    </nav>
+
+    <main class="container">
+        <!-- Hero Section -->
+        <header style="text-align: center; margin: 4rem 0;">
+            <h1 class="fade-in">מה נבשל היום?</h1>
+            <p style="font-size: 1.2rem; max-width: 600px; margin: 0 auto;">בחרו את המרכיבים שיש לכם במטבח, ואנחנו נמצא לכם את המתכונים המושלמים.</p>
+        </header>
+
+        <!-- Kitchen Table (Selected Ingredients) -->
+        <section id="kitchen" style="margin-bottom: 4rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h2 style="font-size: 1.8rem; font-weight: 700;">המטבח שלי</h2>
+                <button id="clear-kitchen" class="btn" style="background: var(--bg-accent); color: var(--text-muted); font-size: 0.9rem;">נקה הכל</button>
+            </div>
+            <div id="selected-ingredients" class="grid" style="min-height: 200px; border: 2px dashed var(--bg-accent); border-radius: var(--border-radius); padding: 2rem;">
+                <!-- Selected items will appear here -->
+                <div id="kitchen-empty-placeholder" style="grid-column: 1/-1; text-align: center; color: var(--text-muted); align-self: center;">
+                    <p>גררו מרכיבים לכאן או פשוט לחצו עליהם במזווה</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pantry (All Ingredients) -->
+        <section id="pantry">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h2 style="font-size: 1.8rem; font-weight: 700;">המזווה</h2>
+                <div class="search-box" style="position: relative;">
+                    <input type="text" id="ingredient-search" placeholder="חפש מרכיב..." style="padding: 0.8rem 1rem; border-radius: 12px; border: 1px solid var(--bg-accent); background: var(--bg-accent); color: var(--text-main); width: 250px;">
+                </div>
+            </div>
+            <div id="pantry-grid" class="grid">
+                <!-- Ingredient cards will be injected here -->
+            </div>
+        </section>
+
+        <!-- Recommendations Section -->
+        <section id="recommendations" style="margin-top: 6rem; display: none;">
+            <h2 style="font-size: 2.22rem; font-weight: 800; text-align: center; margin-bottom: 3rem;">ההמלצות שלנו בשבילך</h2>
+            <div id="recipes-grid" class="grid">
+                <!-- Recipe cards will be injected here -->
+            </div>
+        </section>
+    </main>
+
+    <footer style="margin-top: 6rem; padding: 4rem 2rem; text-align: center; background: var(--bg-accent);">
+        <p>© 2024 Cookit - כל הזכויות שמורות</p>
+    </footer>
+
+    <script src="main.js"></script>
+</body>
+</html>

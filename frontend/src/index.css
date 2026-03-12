@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Noto Sans Hebrew', Heebo, sans-serif;
+  --color-primary: #2f6d63;
+  --color-primary-dark: #24544c;
+  --color-text-primary: #262626;
+  --color-text-secondary: #7B8794;
+  --color-bg-page: #F3F7F6;
+  --color-accent-orange: #FF5A37;
+  --color-accent-yellow: #FFE600;
+
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
+}
+
+@layer base {
+
+  html,
+  body {
+    @apply antialiased;
+    direction: rtl;
+    font-family: var(--font-sans);
+    background:
+      radial-gradient(circle at top right, rgba(255, 90, 55, 0.12), transparent 32%),
+      radial-gradient(circle at left 20%, rgba(47, 109, 99, 0.1), transparent 28%),
+      var(--color-bg-page);
+    color: var(--color-text-primary);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    min-height: 100vh;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
