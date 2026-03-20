@@ -743,6 +743,8 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                     src={recipe.image || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=1200&q=80'}
                     alt={recipe.title}
                     className="absolute inset-0 h-full w-full object-cover opacity-60"
+                    loading="lazy"
+                    decoding="async"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent" />
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import {
   ArrowLeft,
@@ -30,8 +30,11 @@ import {
 } from 'lucide-react';
 import { fetchCommunityRecipes, fetchLibrary, getIngredientImages, parseRecipe, searchUnified, saveRecipe, fetchSettings, updateSettings } from './api';
 import type { SettingsResponse } from './api';
-import { RecipeResult } from './components/RecipeResult';
 import { ShareToast } from './components/ShareToast';
+import { SkeletonHero } from './components/Skeleton';
+
+// Lazy load heavy components
+const RecipeResult = lazy(() => import('./components/RecipeResult').then(m => ({ default: m.RecipeResult })));
 import type { ParsedRecipe, SearchResult } from './types';
 
 type View = 'home' | 'search' | 'recipe' | 'fallback' | 'profile';
@@ -827,11 +830,13 @@ export const App = () => {
 
   if (view === 'recipe' && selectedRecipe) {
     return (
-      <RecipeResult 
-        recipe={selectedRecipe} 
-        onBack={() => setView(previousView)} 
-        onSave={handleSaveRecipe}
-      />
+      <Suspense fallback={<SkeletonHero />}>
+        <RecipeResult 
+          recipe={selectedRecipe} 
+          onBack={() => setView(previousView)} 
+          onSave={handleSaveRecipe}
+        />
+      </Suspense>
     );
   }
 

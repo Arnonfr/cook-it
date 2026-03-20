@@ -49,6 +49,12 @@ jobs:
         working-directory: ./frontend
         run: npx cap sync android
 
+      # Setup Firebase configuration
+      - name: Setup Firebase
+        run: |
+          chmod +x .github/workflows/scripts/setup-firebase.sh
+          .github/workflows/scripts/setup-firebase.sh '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+
       # Build Android Debug APK
       - name: Build Debug APK
         working-directory: ./frontend/android
