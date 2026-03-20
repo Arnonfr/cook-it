@@ -49,6 +49,9 @@ export interface ParsedRecipe {
         steps: Step[];
     };
     id?: string;
+    // Pan/template info (optional)
+    panSize?: number;  // e.g., 20, 26 (cm)
+    panShape?: 'round' | 'rectangular' | 'square' | 'loaf' | 'bundt' | string;
 }
 
 export interface UnifiedSearchResponse {

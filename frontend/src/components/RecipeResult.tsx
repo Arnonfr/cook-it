@@ -913,10 +913,18 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                                         </div>
                                     </div>
 
-                                    {/* Pan Calculator */}
+                                    {/* Pan Calculator - only show if recipe has pan info or user enables it */}
+                                    {(recipe.panSize || recipe.panShape || panEnabled) && (
                                     <div>
                                         <div className="mb-3 flex items-center justify-between">
-                                            <div className="text-sm font-semibold text-slate-900">מחשבון תבניות</div>
+                                            <div className="text-sm font-semibold text-slate-900">
+                                                מחשבון תבניות
+                                                {recipe.panSize && (
+                                                    <span className="mr-2 text-xs font-normal text-slate-500">
+                                                        (מתכון לתבנית {recipe.panShape === 'round' ? 'עגולה' : recipe.panShape === 'rectangular' ? 'מלבנית' : recipe.panShape === 'square' ? 'מרובעת' : ''} {recipe.panSize} ס״מ)
+                                                    </span>
+                                                )}
+                                            </div>
                                             <button
                                                 type="button"
                                                 dir="ltr"
@@ -986,6 +994,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                                             </div>
                                         )}
                                     </div>
+                                    )}
                                 </div>
                             )}
                         </section>

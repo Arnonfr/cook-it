@@ -145,20 +145,6 @@ const ApiKeyField = ({
         </div>
       )}
 
-      {/* Share Toast */}
-      {shareToast.show && (
-        <ShareToast
-          recipeUrl={shareToast.url}
-          recipeTitle={shareToast.recipe?.title}
-          onOpen={() => {
-            if (shareToast.recipe) {
-              setSelectedRecipe(shareToast.recipe);
-              setView('recipe');
-            }
-          }}
-          onDismiss={() => setShareToast({ show: false, url: '', recipe: null })}
-        />
-      )}
     </div>
   );
 };
@@ -628,9 +614,11 @@ export const App = () => {
     recipe: ParsedRecipe | null;
   }>({ show: false, url: '', recipe: null });
 
-  // Handle shared URL with toast
+  // Handle shared URL with toast (used by Android integration)
   const handleSharedUrl = async (url: string) => {
+    console.log('handleSharedUrl called:', url);
     setShareToast({ show: true, url, recipe: null });
+    console.log('Toast state set to show');
     
     try {
       // Extract recipe in background
@@ -653,16 +641,42 @@ export const App = () => {
     void loadCommunity();
 
     // Handle deep links
-    const setupAppEvents = async () => {
-      CapApp.addListener('appUrlOpen', (event: any) => {
-        const url = new URL(event.url);
-        if (url.protocol === 'cookit:' && url.host === 'parse') {
-          const recipeUrl = url.searchParams.get('url');
+    const handleDeepLink = (urlString: string) => {
+      console.log('handleDeepLink called with:', urlString);
+      try {
+        // Parse cookit://parse?url=... format manually
+        const match = urlString.match(/^cookit:\/\/parse\?url=(.+)$/);
+        if (match) {
+          const recipeUrl = decodeURIComponent(match[1]);
+          console.log('Recipe URL:', recipeUrl);
           if (recipeUrl) {
-            handleExtractRecipe(recipeUrl);
+            handleSharedUrl(recipeUrl);
           }
+        } else {
+          console.log('URL does not match expected format');
         }
+      } catch (e) {
+        console.error('Invalid URL:', urlString, e);
+      }
+    };
+
+    const setupAppEvents = async () => {
+      // Listen for new deep links
+      CapApp.addListener('appUrlOpen', (event: any) => {
+        handleDeepLink(event.url);
       });
+
+      // Check for pending deep link after a short delay (for when app was launched from share)
+      setTimeout(async () => {
+        try {
+          const result = await (CapApp as any).getPendingUrl?.() || { url: null };
+          if (result.url) {
+            handleDeepLink(result.url);
+          }
+        } catch (e) {
+          // Plugin not available, ignore
+        }
+      }, 500);
     };
     void setupAppEvents();
 
@@ -1149,6 +1163,22 @@ export const App = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Share Toast */}
+      {shareToast.show && (
+        <ShareToast
+          recipeUrl={shareToast.url}
+          recipeTitle={shareToast.recipe?.title}
+          isExtracting={!shareToast.recipe}
+          onOpen={() => {
+            if (shareToast.recipe) {
+              setSelectedRecipe(shareToast.recipe);
+              setView('recipe');
+            }
+          }}
+          onDismiss={() => setShareToast({ show: false, url: '', recipe: null })}
+        />
       )}
     </div>
   );
