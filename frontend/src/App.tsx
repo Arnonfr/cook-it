@@ -31,6 +31,7 @@ import {
 import { fetchCommunityRecipes, fetchLibrary, getIngredientImages, parseRecipe, searchUnified, saveRecipe, fetchSettings, updateSettings } from './api';
 import type { SettingsResponse } from './api';
 import { RecipeResult } from './components/RecipeResult';
+import { ShareToast } from './components/ShareToast';
 import type { ParsedRecipe, SearchResult } from './types';
 
 type View = 'home' | 'search' | 'recipe' | 'fallback' | 'profile';
@@ -142,6 +143,21 @@ const ApiKeyField = ({
             {saving ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
           </button>
         </div>
+      )}
+
+      {/* Share Toast */}
+      {shareToast.show && (
+        <ShareToast
+          recipeUrl={shareToast.url}
+          recipeTitle={shareToast.recipe?.title}
+          onOpen={() => {
+            if (shareToast.recipe) {
+              setSelectedRecipe(shareToast.recipe);
+              setView('recipe');
+            }
+          }}
+          onDismiss={() => setShareToast({ show: false, url: '', recipe: null })}
+        />
       )}
     </div>
   );
@@ -604,6 +620,33 @@ export const App = () => {
   const [localResults, setLocalResults] = useState<SearchResult[]>([]);
   const [webResults, setWebResults] = useState<SearchResult[]>([]);
   const [showAllWeb, setShowAllWeb] = useState(false);
+
+  // Share toast state
+  const [shareToast, setShareToast] = useState<{
+    show: boolean;
+    url: string;
+    recipe: ParsedRecipe | null;
+  }>({ show: false, url: '', recipe: null });
+
+  // Handle shared URL with toast
+  const handleSharedUrl = async (url: string) => {
+    setShareToast({ show: true, url, recipe: null });
+    
+    try {
+      // Extract recipe in background
+      const recipe = await parseRecipe(url, MOCK_USER_ID);
+      
+      // Update toast with success
+      setShareToast({ show: true, url, recipe });
+      
+      // Refresh library
+      void loadLibrary();
+    } catch (error) {
+      console.error('Failed to extract shared recipe:', error);
+      // Still show toast but without recipe
+      setShareToast({ show: true, url, recipe: null });
+    }
+  };
 
   useEffect(() => {
     void loadLibrary();

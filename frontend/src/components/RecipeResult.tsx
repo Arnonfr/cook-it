@@ -98,11 +98,11 @@ const FRACTIONS: Record<string, number> = {
 };
 
 const BUTTON_PRIMARY =
-    'inline-flex h-10 items-center justify-center gap-2 rounded-[12px] bg-[#2f6d63] px-4 text-sm font-semibold text-white transition-all hover:bg-[#285c54] disabled:cursor-not-allowed disabled:opacity-35 md:h-12 md:rounded-[16px] md:px-5 md:text-base';
+    'inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#2f6d63] px-4 text-sm font-semibold text-white transition-all hover:bg-[#285c54] disabled:cursor-not-allowed disabled:opacity-35 md:h-12 md:px-5 md:text-base';
 const BUTTON_SECONDARY =
-    'inline-flex h-10 items-center justify-center gap-2 rounded-[12px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 md:h-12 md:rounded-[16px] md:px-4';
+    'inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition-all hover:border-slate-400 hover:bg-slate-50 md:h-12 md:px-4';
 const BUTTON_TERTIARY =
-    'inline-flex h-10 items-center justify-center gap-2 rounded-[10px] border border-transparent bg-slate-100 px-3 text-sm font-medium text-slate-600 transition-all hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40 md:h-11 md:rounded-[12px] md:px-4';
+    'inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-transparent bg-slate-100 px-3 text-sm font-medium text-slate-600 transition-all hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40 md:h-11 md:px-4';
 
 const formatDuration = (duration?: string) => {
     if (!duration) return 'לא צוין';
@@ -315,12 +315,32 @@ const calcPanArea = (shape: PanShape, size: string): number => {
     return (w || 0) * (h || 0);
 };
 
-const PanShapeIcon = ({ shape, size = 28 }: { shape: PanShape; size?: number }) => (
-    <svg width={size} height={size} viewBox="0 0 28 28" fill="none" className="shrink-0">
-        {shape === 'round' && <circle cx="14" cy="14" r="11" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 2" />}
-        {shape === 'square' && <rect x="3" y="3" width="22" height="22" rx="2" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 2" />}
-        {shape === 'rectangular' && <rect x="1" y="5" width="26" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 2" />}
-        {shape === 'loaf' && <rect x="7" y="2" width="14" height="24" rx="4" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 2" />}
+const PanShapeIcon = ({ shape, size = 48 }: { shape: PanShape; size?: number }) => (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className="shrink-0">
+        {shape === 'round' && (
+            <>
+                <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="2" />
+                <circle cx="24" cy="24" r="16" stroke="currentColor" strokeWidth="1" strokeDasharray="4 2" opacity="0.5" />
+            </>
+        )}
+        {shape === 'square' && (
+            <>
+                <rect x="6" y="6" width="36" height="36" rx="4" stroke="currentColor" strokeWidth="2" />
+                <rect x="10" y="10" width="28" height="28" rx="2" stroke="currentColor" strokeWidth="1" strokeDasharray="4 2" opacity="0.5" />
+            </>
+        )}
+        {shape === 'rectangular' && (
+            <>
+                <rect x="4" y="12" width="40" height="24" rx="4" stroke="currentColor" strokeWidth="2" />
+                <rect x="8" y="16" width="32" height="16" rx="2" stroke="currentColor" strokeWidth="1" strokeDasharray="4 2" opacity="0.5" />
+            </>
+        )}
+        {shape === 'loaf' && (
+            <>
+                <rect x="14" y="4" width="20" height="40" rx="8" stroke="currentColor" strokeWidth="2" />
+                <rect x="17" y="8" width="14" height="32" rx="4" stroke="currentColor" strokeWidth="1" strokeDasharray="4 2" opacity="0.5" />
+            </>
+        )}
     </svg>
 );
 

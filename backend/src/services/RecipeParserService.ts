@@ -123,13 +123,55 @@ export class RecipeParserService {
             const html = await this.fetchHtml(url as string);
             const { $, recipeJsonLd } = this.extractRecipeJsonLd(html);
 
-            if (!recipeJsonLd) {
+            // Extract image from multiple sources
+            let image: string | undefined;
+            
+            if (recipeJsonLd?.image) {
+                image = Array.isArray(recipeJsonLd.image)
+                    ? recipeJsonLd.image[0]?.url || recipeJsonLd.image[0]
+                    : recipeJsonLd.image?.url || recipeJsonLd.image;
+            }
+            
+            // Fallback to meta tags if no JSON-LD image
+            if (!image) {
+                image = $('meta[property="og:image"]').attr('content')?.trim() ||
+                       $('meta[name="twitter:image"]').attr('content')?.trim() ||
+                       $('meta[property="og:image:secure_url"]').attr('content')?.trim() ||
+                       $('article img').first().attr('src') ||
+                       $('.recipe-image img').first().attr('src') ||
+                       $('img[alt*="recipe" i]').first().attr('src');
+                
+                // Make relative URLs absolute
+                if (image && !image.startsWith('http')) {
+                    try {
+                        const baseUrl = new URL(url);
+                        image = image.startsWith('/') 
+                            ? `${baseUrl.protocol}//${baseUrl.host}${image}`
+                            : `${baseUrl.protocol}//${baseUrl.host}/${image}`;
+                    } catch {
+                        // keep original if URL parsing fails
+                    }
+                }
+            }
+            
+            if (!recipeJsonLd && !image) {
                 return null;
             }
-
-            const image = Array.isArray(recipeJsonLd.image)
-                ? recipeJsonLd.image[0]?.url || recipeJsonLd.image[0]
-                : recipeJsonLd.image?.url || recipeJsonLd.image;
+            
+            // If we have an image but no JSON-LD, return basic result
+            if (!recipeJsonLd && image) {
+                return {
+                    sourceUrl: url,
+                    title: fallbackTitle || $('h1').first().text().trim() || $('title').text().trim(),
+                    image,
+                    totalTime: undefined,
+                    servings: undefined,
+                    ingredientsPreview: [],
+                    sourceName: fallbackSourceName || new URL(url).hostname.replace('www.', ''),
+                    difficulty: undefined,
+                    tags: []
+                };
+            }
             const recipeYield = recipeJsonLd.recipeYield;
             const servings = typeof recipeYield === 'number'
                 ? recipeYield
@@ -526,7 +568,7 @@ export class RecipeParserService {
         }
 
         const genAI = new GoogleGenerativeAI(env.geminiApiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-preview" });
 
         const schema = {
             type: SchemaType.OBJECT,

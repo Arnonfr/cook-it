@@ -1,0 +1,12 @@
+[INFO] 2026-03-13T08:24:36Z Hook script invoked
+[INFO] 2026-03-13T08:24:36Z PLUGIN_ROOT=/Users/hyh/.claude/plugins/babysitter
+[INFO] 2026-03-13T08:24:36Z Hook input received (    1581 bytes)
+[INFO] 2026-03-13T08:24:36.605Z handleHookRunStop started
+[INFO] 2026-03-13T08:24:36.641Z Hook input received
+[INFO] 2026-03-13T08:24:36.641Z [session=a7bdd62d-95f2-4093-99ab-1ad848fdf3c0] Session ID: a7bdd62d-95f2-4093-99ab-1ad848fdf3c0
+[INFO] 2026-03-13T08:24:36.641Z [session=a7bdd62d-95f2-4093-99ab-1ad848fdf3c0] Resolved pluginRoot: /Users/hyh/.claude/plugins/babysitter
+[INFO] 2026-03-13T08:24:36.641Z [session=a7bdd62d-95f2-4093-99ab-1ad848fdf3c0] Resolved stateDir: /Users/hyh/.claude/plugins/babysitter/skills/babysit/state
+[INFO] 2026-03-13T08:24:36.641Z [session=a7bdd62d-95f2-4093-99ab-1ad848fdf3c0] Checking session file at: /Users/hyh/.claude/plugins/babysitter/skills/babysit/state/a7bdd62d-95f2-4093-99ab-1ad848fdf3c0.md
+[INFO] 2026-03-13T08:24:36.643Z [session=a7bdd62d-95f2-4093-99ab-1ad848fdf3c0] Primary state file not found, trying fallback: /Users/hyh/Documents/cookit/backend/.a5c/state/a7bdd62d-95f2-4093-99ab-1ad848fdf3c0.md
+[INFO] 2026-03-13T08:24:36.643Z [session=a7bdd62d-95f2-4093-99ab-1ad848fdf3c0] No active loop found at primary (/Users/hyh/.claude/plugins/babysitter/skills/babysit/state/a7bdd62d-95f2-4093-99ab-1ad848fdf3c0.md) or fallback (/Users/hyh/Documents/cookit/backend/.a5c/state/a7bdd62d-95f2-4093-99ab-1ad848fdf3c0.md) — allowing exit
+[INFO] 2026-03-13T08:24:36Z CLI exit code=0

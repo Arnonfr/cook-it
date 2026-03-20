@@ -1,0 +1,11 @@
+# Local config
+.env
+
+# Logs / temp
+*.log
+*.tmp
+.DS_Store
+
+# IDE
+.idea/
+*.iml
