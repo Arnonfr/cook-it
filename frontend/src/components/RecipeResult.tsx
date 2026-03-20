@@ -429,7 +429,7 @@ const StepTimer = ({ minutes }: { minutes: number }) => {
                         <AlarmClock size={14} />
                         טיימר לשלב
                     </div>
-                    <div className="mt-2 text-2xl font-bold text-slate-900">
+                    <div className="mt-2 text-lg font-medium text-slate-900">
                         {minutesLabel}:{secondsLabel}
                     </div>
                     <div className="mt-1 text-sm text-slate-500">זוהה זמן של {minutes} דקות בטקסט השלב</div>
@@ -479,7 +479,7 @@ const StepCard = ({
             {/* Step badge with integrated checkbox */}
             <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-3">
-                    <span className={'inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-[13px] font-black transition-colors ' + (completed ? 'bg-emerald-100 text-emerald-700' : 'bg-[#e7f3f1] text-[#2f6d63]')}>
+                    <span className={'inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-[13px] font-medium transition-colors ' + (completed ? 'bg-emerald-100 text-emerald-700' : 'bg-[#e7f3f1] text-[#2f6d63]')}>
                         <div className={'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full transition-all ' + (completed ? 'bg-emerald-500 text-white' : 'border-2 border-current/40')}>
                             {completed && <CheckCircle2 size={12} className="stroke-[3]" />}
                         </div>
@@ -564,7 +564,7 @@ const OriginalRecipeDrawer = ({
                             <X size={18} />
                         </button>
                         <div>
-                            <h3 className="text-sm font-bold text-slate-900 md:text-base">הצצה למתכון המקורי</h3>
+                            <h3 className="text-sm font-normal text-slate-700 md:text-base">הצצה למתכון המקורי</h3>
                             <a href={url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-[#236eff] underline transition-colors hover:text-[#1d5bbf]">
                                 פתח בדפדפן רגיל <ExternalLink size={10} />
                             </a>
@@ -786,7 +786,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                                 </span>
                             ))}
                         </div>
-                        <h1 className="text-3xl lg:text-5xl font-black leading-[1.05] text-white mb-3 drop-shadow-xl max-w-[800px]">
+                        <h1 className="text-base lg:text-lg font-normal leading-[1.15] text-white mb-2 drop-shadow-md max-w-[800px]">
                             {displayTitle}
                         </h1>
                         {hasTranslation && (
@@ -830,7 +830,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
             <div className="sticky top-0 z-30 flex border-b border-slate-200/80 bg-white/95 backdrop-blur-xl shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
                 <div className="mx-auto flex w-full max-w-[1240px]">
                     <button
-                        className={'flex-1 py-4 md:py-5 text-center text-[15px] md:text-base font-bold border-b-[3px] transition-all ' + (activeTab === 'steps' ? 'border-[#2f6d63] text-[#2f6d63] bg-slate-50/50' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/80')}
+                        className={'flex-1 py-4 md:py-5 text-center text-[14px] md:text-[15px] font-medium border-b-[3px] transition-all ' + (activeTab === 'steps' ? 'border-[#2f6d63] text-[#2f6d63] bg-slate-50/50' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/80')}
                         onClick={() => setActiveTab('steps')}
                     >
                         <span className="flex items-center justify-center gap-2">
@@ -839,16 +839,16 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                         </span>
                     </button>
                     <button
-                        className={'flex-1 py-4 md:py-5 text-center text-[15px] md:text-base font-bold border-b-[3px] transition-all ' + (activeTab === 'ingredients' ? 'border-[#2f6d63] text-[#2f6d63] bg-slate-50/50' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/80')}
+                        className={'flex-1 py-4 md:py-5 text-center text-[14px] md:text-[15px] font-medium border-b-[3px] transition-all ' + (activeTab === 'ingredients' ? 'border-[#2f6d63] text-[#2f6d63] bg-slate-50/50' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/80')}
                         onClick={() => setActiveTab('ingredients')}
                     >
                         <span className="flex items-center justify-center gap-2">
                             <Utensils size={18} />
-                            מצרכים <span className="opacity-60 bg-current/10 px-1.5 py-0.5 rounded-md text-[11px] font-black">{displayIngredients.length}</span>
+                            מצרכים <span className="opacity-60 bg-current/10 px-1.5 py-0.5 rounded-md text-[11px] font-medium">{displayIngredients.length}</span>
                         </span>
                     </button>
                     <button
-                        className={'flex-1 py-4 md:py-5 text-center text-[15px] md:text-base font-bold border-b-[3px] transition-all ' + (activeTab === 'original' ? 'border-[#2f6d63] text-[#2f6d63] bg-slate-50/50' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/80')}
+                        className={'flex-1 py-4 md:py-5 text-center text-[14px] md:text-[15px] font-medium border-b-[3px] transition-all ' + (activeTab === 'original' ? 'border-[#2f6d63] text-[#2f6d63] bg-slate-50/50' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/80')}
                         onClick={() => setActiveTab('original')}
                     >
                         <span className="flex items-center justify-center gap-2">
@@ -869,7 +869,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                                         <Scaling size={15} />
                                         התאמות חכמות
                                     </div>
-                                    <div className="mt-1.5 text-[15px] md:text-base font-bold text-slate-900">הכמויות מחושבות לפי {formatServingsLabel(desiredServings)}</div>
+                                    <div className="mt-1.5 text-[14px] md:text-[15px] font-medium text-slate-900">הכמויות מחושבות לפי {formatServingsLabel(desiredServings)}</div>
                                     <div className="mt-0.5 text-sm text-slate-500">
                                         {measureMode === 'home' ? 'מוצג בכוסות וכפות' : 'תצוגה מקורית'}
                                     </div>
@@ -960,7 +960,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                                                         <PanShapeIcon shape={basePanShape} size={40} />
                                                         <span className="text-[10px] font-bold text-slate-400">{basePanSize} ס״מ</span>
                                                     </div>
-                                                    <span className="text-lg font-black text-slate-300">→</span>
+                                                    <span className="text-lg font-medium text-slate-300">→</span>
                                                     <div className="flex flex-col items-center gap-1.5">
                                                         <PanShapeIcon shape={targetPanShape} size={40} />
                                                         <span className="text-[10px] font-bold text-[#2f6d63]">{targetPanSize} ס״מ</span>
@@ -1001,7 +1001,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
 
                         <section className="bg-white rounded-[28px] p-4 py-5 md:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] border border-slate-100">
                             <div className="mb-4 px-2 flex items-baseline justify-between">
-                                <h2 className="flex items-center gap-2 text-xl font-black text-slate-900">
+                                <h2 className="flex items-center gap-2 text-base font-normal text-slate-700">
                                     רשימת מצרכים
                                 </h2>
                                 <div className="flex items-center gap-2 text-[13px] font-bold text-slate-500">
@@ -1058,8 +1058,8 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                     <section className="relative">
                         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between px-2">
                             <div>
-                                <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[#2f6d63] mb-1">Preparation Flow</div>
-                                <h2 className="text-2xl font-black text-slate-900">אופן ההכנה</h2>
+                                <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#2f6d63] mb-1">Preparation Flow</div>
+                                <h2 className="text-base font-medium text-slate-900">אופן ההכנה</h2>
                             </div>
                         </div>
 
@@ -1140,7 +1140,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                                 Object.entries(groupedSteps).map(([sectionName, items]) => (
                                     <div key={sectionName} className="mb-8">
                                         {sectionName && (
-                                            <h3 className="mb-4 px-2 text-lg font-black text-slate-800">{sectionName}</h3>
+                                            <h3 className="mb-4 px-2 text-lg font-medium text-slate-800">{sectionName}</h3>
                                         )}
                                         <div className="space-y-4">
                                             {items.map(({ step, ingredients }) => (
