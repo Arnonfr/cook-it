@@ -20,9 +20,16 @@ import {
   X,
   ChevronRight,
   Pencil,
-  Check
+  Check,
+  Key,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
-import { fetchCommunityRecipes, fetchLibrary, getIngredientImages, parseRecipe, searchUnified, saveRecipe } from './api';
+import { fetchCommunityRecipes, fetchLibrary, getIngredientImages, parseRecipe, searchUnified, saveRecipe, fetchSettings, updateSettings } from './api';
+import type { SettingsResponse } from './api';
 import { RecipeResult } from './components/RecipeResult';
 import type { ParsedRecipe, SearchResult } from './types';
 
@@ -45,11 +52,115 @@ const loadDietaryPrefs = (): string[] => {
 const loadDisplayName = (): string => localStorage.getItem('display_name') || '';
 
 /* ─── Profile View ─── */
+/* ─── API Key Field ─── */
+const ApiKeyField = ({
+  label, description, keyName, initialMasked, initialValid, initialSet
+}: {
+  label: string; description: string; keyName: string;
+  initialMasked: string; initialValid: boolean; initialSet: boolean;
+}) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState('');
+  const [show, setShow] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [isValid, setIsValid] = useState(initialValid);
+  const [isSet, setIsSet] = useState(initialSet);
+  const [masked, setMasked] = useState(initialMasked);
+
+  const save = async () => {
+    if (!value.trim()) return;
+    setSaving(true);
+    try {
+      await updateSettings({ [keyName]: value.trim() });
+      setMasked(value.trim().slice(0, 4) + '...' + value.trim().slice(-4));
+      setIsSet(true);
+      setIsValid(true);
+      setSaved(true);
+      setEditing(false);
+      setValue('');
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      // keep editing open on error
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="border-t border-slate-100 pt-4 first:border-0 first:pt-0">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[14px] font-bold text-slate-800">{label}</span>
+            {isSet && isValid && <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />}
+            {isSet && !isValid && <AlertCircle size={14} className="text-amber-500 shrink-0" />}
+            {!isSet && <AlertCircle size={14} className="text-red-400 shrink-0" />}
+          </div>
+          <p className="text-[12px] text-slate-500 mt-0.5">{description}</p>
+          {isSet && (
+            <span className="mt-1 inline-block font-mono text-[11px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-lg">
+              {masked || '•••'}
+            </span>
+          )}
+          {saved && <span className="mr-2 text-[12px] text-emerald-600 font-bold">✓ נשמר</span>}
+        </div>
+        <button
+          onClick={() => { setEditing(e => !e); setValue(''); }}
+          className="shrink-0 flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+        >
+          <Pencil size={12} />
+          {isSet ? 'עדכן' : 'הגדר'}
+        </button>
+      </div>
+      {editing && (
+        <div className="flex gap-2 mt-2">
+          <div className="relative flex-1">
+            <input
+              autoFocus
+              type={show ? 'text' : 'password'}
+              value={value}
+              onChange={e => setValue(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && void save()}
+              placeholder={`הדבק ${label}...`}
+              className="w-full rounded-[12px] border border-slate-200 px-3 py-2.5 text-[13px] font-mono text-slate-800 outline-none focus:border-[#236EFF] pr-9 bg-white"
+              dir="ltr"
+            />
+            <button
+              type="button"
+              onClick={() => setShow(s => !s)}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              {show ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+          <button
+            onClick={() => void save()}
+            disabled={saving || !value.trim()}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#236EFF] text-white disabled:opacity-50 hover:bg-[#0B52DB] transition-colors"
+          >
+            {saving ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ProfileView = ({ onBack }: { onBack: () => void }) => {
   const [restricted, setRestricted] = useState<string[]>(loadDietaryPrefs);
   const [name, setName] = useState(loadDisplayName);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(name);
+  const [settings, setSettings] = useState<SettingsResponse | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchSettings()
+      .then(s => setSettings(s))
+      .catch(() => setSettings(null))
+      .finally(() => setSettingsLoading(false));
+  }, []);
 
   const toggle = (id: string) => {
     setRestricted(prev => {
@@ -131,6 +242,40 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
             <p className="mt-4 text-[12px] text-slate-400">
               {restricted.length} הגבלה{restricted.length > 1 ? 'ות' : ''} מוגדרת{restricted.length > 1 ? 'ות' : ''}
             </p>
+          )}
+        </div>
+
+        {/* API Keys */}
+        <div className="rounded-[24px] bg-white border border-slate-100 shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Key size={16} className="text-[#236EFF]" />
+            <h2 className="text-[15px] font-black text-slate-900">מפתחות API</h2>
+          </div>
+          {settingsLoading ? (
+            <div className="flex justify-center py-4">
+              <Loader2 size={20} className="animate-spin text-slate-300" />
+            </div>
+          ) : settings ? (
+            <div className="space-y-4">
+              <ApiKeyField
+                label="Gemini API Key"
+                description="חילוץ ותרגום מתכונים — נדרש מ-Google AI Studio"
+                keyName="geminiApiKey"
+                initialMasked={settings.geminiApiKey.masked}
+                initialValid={settings.geminiApiKey.valid}
+                initialSet={settings.geminiApiKey.set}
+              />
+              <ApiKeyField
+                label="Serper API Key"
+                description="חיפוש מתכונים מהאינטרנט — נדרש מ-serper.dev"
+                keyName="serperApiKey"
+                initialMasked={settings.serperApiKey.masked}
+                initialValid={settings.serperApiKey.valid}
+                initialSet={settings.serperApiKey.set}
+              />
+            </div>
+          ) : (
+            <p className="text-[13px] text-slate-400 text-center py-2">לא ניתן להתחבר לשרת</p>
           )}
         </div>
 

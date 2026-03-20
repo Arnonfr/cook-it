@@ -27,12 +27,9 @@ export const getLanguageDisplayName = (code: string): string =>
     LANGUAGE_NAMES[code] || code;
 
 export class TranslationService {
-    private genAI: GoogleGenerativeAI | null;
-
-    constructor() {
-        this.genAI = env.geminiApiKey
-            ? new GoogleGenerativeAI(env.geminiApiKey)
-            : null;
+    // Returns a fresh client using the current key (supports runtime key updates via settings endpoint)
+    private getGenAI(): GoogleGenerativeAI | null {
+        return env.geminiApiKey ? new GoogleGenerativeAI(env.geminiApiKey) : null;
     }
 
     isHebrew(text: string): boolean {
@@ -51,7 +48,8 @@ export class TranslationService {
             originalLanguage: this.isHebrew(t) ? 'he' : 'unknown',
         }));
 
-        if (!this.genAI) return results;
+        const genAI = this.getGenAI();
+        if (!genAI) return results;
 
         const nonHebrewIndices = results
             .map((r, i) => (r.originalLanguage !== 'he' ? i : -1))
@@ -60,7 +58,7 @@ export class TranslationService {
         if (nonHebrewIndices.length === 0) return results;
 
         try {
-            const model = this.genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite-preview' });
+            const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite-preview' });
             const titlesToTranslate = nonHebrewIndices.map((i) => titles[i]);
 
             const prompt = `Translate these recipe titles to Hebrew and detect their original language.
@@ -100,10 +98,11 @@ Use ISO 639-1 codes. Keep proper nouns.`;
     async translateFullRecipe(
         recipe: ParsedRecipe
     ): Promise<{ title: string; ingredients: ParsedRecipeIngredient[]; steps: ParsedRecipeStep[]; lang: string } | null> {
-        if (!this.genAI) return null;
+        const genAI = this.getGenAI();
+        if (!genAI) return null;
 
         try {
-            const model = this.genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite-preview' });
+            const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite-preview' });
 
             const compact = {
                 title: recipe.title,

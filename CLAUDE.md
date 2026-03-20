@@ -30,13 +30,14 @@ frontend/src/
     Collections.tsx
 
 backend/src/
-  routes/recipe.ts           # כל ה-endpoints
+  routes/recipe.ts           # כל ה-endpoints לחיפוש, חילוץ, שמירה
+  routes/settings.ts         # GET/POST /api/settings — ניהול API keys בזמן ריצה
   services/
     GoogleSearchService.ts   # חיפוש: Serper → DuckDuckGo → mock
     RecipeParserService.ts   # חילוץ: Gemini → JSON-LD → HTML heuristic
     TranslationService.ts    # תרגום לעברית דרך Gemini
     IngredientImageService.ts
-  config/env.ts              # כל env vars עוברים דרך כאן
+  config/env.ts              # כל env vars עוברים דרך כאן — אובייקט mutable לעדכון runtime
   data/mockRecipes.ts        # מתכוני ברירת מחדל
 
 backend/prisma/
@@ -83,7 +84,8 @@ backend/prisma/
 | תרגום כותרות | `TranslationService.ts:63` | `gemini-3.1-flash-lite-preview` |
 | תרגום מתכון מלא | `TranslationService.ts:106` | `gemini-3.1-flash-lite-preview` |
 
-**שים לב:** מודלי Gemini 3 הם `preview` — ה-API key ב-`.env.local` חייב לתמוך בהם.
+**שים לב:** מודלי Gemini 3 הם `preview` — ה-API key חייב לתמוך בהם.
+מפתח Gemini תקין מתחיל ב-`AIza` ואורכו 39 תווים.
 אם יש שגיאת `API_KEY_INVALID` — צור key חדש ב-[Google AI Studio](https://aistudio.google.com/apikey).
 
 ---
@@ -94,12 +96,31 @@ backend/prisma/
 |-------|------|-------|
 | `GEMINI_API_KEY` | `backend/.env.local` | חילוץ + תרגום |
 | `SERPER_API_KEY` | `backend/.env.local` | חיפוש + תמונות |
-| `GOOGLE_API_KEY` | `backend/.env.local` | Google Custom Search (נוכחית לא פעיל) |
+| `GOOGLE_API_KEY` | `backend/.env.local` | Google Custom Search (כרגע לא פעיל) |
 | `GOOGLE_CX` | `backend/.env.local` | Google Custom Search engine ID |
 | `DATABASE_URL` | `backend/.env` | נתיב SQLite |
-| `VITE_API_BASE_URL` | `frontend/.env.local` | `http://localhost:3001` |
+| `VITE_API_BASE_URL` | `frontend/.env.local` | `http://localhost:3001` (או IP הרשת ל-Android) |
 
 **כלל:** אף פעם לא `VITE_*` לסודות. כל מה שעובר לדפדפן הוא ציבורי.
+
+### ⚠️ Git Secrets — שאלה נפוצה
+
+**Git Secrets הם לא הפתרון כאן.** Git Secrets מיועדים לצינורות CI/CD (GitHub Actions וכו').
+
+האפליקציה עובדת כך:
+- **Android APK** ← HTTP → **Backend Express (על המחשב)**
+- הבקאנד קורא מפתחות מ-`backend/.env.local` **בזמן ריצה**
+- ה-APK לא צריך מפתחות — הוא פשוט קורא REST API
+
+**הפתרון הנכון לבעיה ב-Android:**
+1. הבקאנד חייב לרוץ: `cd backend && npm run dev`
+2. `backend/.env.local` חייב להכיל מפתחות תקינים (`AIza...` ל-Gemini)
+3. המכשיר והמחשב על אותה WiFi
+4. `frontend/.env.local` מכיל `VITE_API_BASE_URL=http://[IP_של_המחשב]:3001`
+
+### ניהול מפתחות דרך ה-UI
+יש `GET/POST /api/settings` — מאפשר עדכון מפתחות בזמן ריצה דרך דף הפרופיל באפליקציה.
+השינויים נכתבים ל-`backend/.env.local` ומתעדכנים מיד (ללא restart לשירותים רוב הפעמים).
 
 ---
 
@@ -165,13 +186,23 @@ npx prisma studio
 
 ---
 
-## Android (תוכנית עתידית)
+## Android
 
 ראה `plans/android_implementation.md`. עיקרי:
 - Capacitor לעטיפת ה-PWA
+- ה-APK בנוי ומוכן (בנוי עם JDK 21 Temurin + Android SDK build-tools 36)
 - Keep Screen On — `@capacitor-community/keep-screen-on`
 - Floating Share Overlay — Java native (`ShareActivity` + `RecipeOverlayService`)
 - שיתוף URL מדפדפן/אפליקציה → cookit מחלץ אוטומטית
+
+### בנייה מחדש של APK
+```bash
+cd frontend
+VITE_API_BASE_URL=http://[IP]:3001 npm run build
+npx cap sync android
+cd android && ./gradlew assembleDebug
+# APK: android/app/build/outputs/apk/debug/app-debug.apk
+```
 
 ---
 
@@ -189,4 +220,6 @@ npx prisma studio
 2. לחיצה על תוצאה → מתכון מנותח עם מצרכים ושלבים
 3. מתכון אנגלי → מתורגם לעברית
 4. UI נשמר RTL בכל הדפים
-5. `backend/.env.local` מכיל `GEMINI_API_KEY` תקין ל-Gemini 3 preview
+5. `backend/.env.local` מכיל `GEMINI_API_KEY` תקין (`AIza...`) ל-Gemini 3 preview
+6. `backend/.env.local` מכיל `SERPER_API_KEY` תקין מ-serper.dev
+7. `GET /api/settings` מחזיר `valid: true` לשני המפתחות

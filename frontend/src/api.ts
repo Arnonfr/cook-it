@@ -67,3 +67,23 @@ export const fetchCollectionDetail = async (collectionId: string) => {
     return response.data;
 };
 
+export interface KeyStatus {
+    set: boolean;
+    valid: boolean;
+    masked: string;
+}
+
+export interface SettingsResponse {
+    geminiApiKey: KeyStatus;
+    serperApiKey: KeyStatus;
+}
+
+export const fetchSettings = async (): Promise<SettingsResponse> => {
+    const response = await axios.get(`${API_BASE_URL}/settings`);
+    return response.data;
+};
+
+export const updateSettings = async (keys: { geminiApiKey?: string; serperApiKey?: string }): Promise<void> => {
+    await axios.post(`${API_BASE_URL}/settings`, keys);
+};
+

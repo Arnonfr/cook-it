@@ -10,12 +10,15 @@ const prisma = new PrismaClient();
 const HEBREW_REGEX = /[\u0590-\u05FF]/;
 
 export class GoogleSearchService {
-    private serperApiKey: string;
     private parserService: RecipeParserService;
 
     constructor() {
-        this.serperApiKey = env.serperApiKey;
         this.parserService = new RecipeParserService();
+    }
+
+    // Always reads the current key — supports runtime updates via settings endpoint
+    private get serperApiKey(): string {
+        return env.serperApiKey;
     }
 
     private normalize(text: string) {
@@ -137,89 +140,184 @@ export class GoogleSearchService {
     }
 
     /**
+     * Extract time from text (snippet or title)
+     * Looks for patterns like: 30 דקות, שעה, 1.5 שעות, PT30M, PT1H
+     */
+    private extractTimeFromText(text: string): string | undefined {
+        if (!text) return undefined;
+        
+        // Hebrew patterns
+        const hebrewPatterns = [
+            { regex: /(\d+(?:\.\d+)?)\s*שעות?/, format: (m: string[]) => `PT${Math.floor(parseFloat(m[1]) * 60)}M` },
+            { regex: /(\d+)\s*דקות?/, format: (m: string[]) => `PT${m[1]}M` },
+            { regex: /שעה\s*ונחצי/, format: () => `PT90M` },
+            { regex: /שעה(?:\s*ואחת)?/, format: () => `PT60M` },
+            { regex: /חצי\s*שעה/, format: () => `PT30M` },
+        ];
+        
+        // English patterns
+        const englishPatterns = [
+            { regex: /(\d+(?:\.\d+)?)\s*hours?/, format: (m: string[]) => `PT${Math.floor(parseFloat(m[1]) * 60)}M` },
+            { regex: /(\d+)\s*mins?/, format: (m: string[]) => `PT${m[1]}M` },
+            { regex: /(\d+)\s*minutes?/, format: (m: string[]) => `PT${m[1]}M` },
+        ];
+        
+        for (const pattern of [...hebrewPatterns, ...englishPatterns]) {
+            const match = text.match(pattern.regex);
+            if (match) {
+                return pattern.format(match);
+            }
+        }
+        
+        return undefined;
+    }
+
+    /**
+     * Extract ingredient-like items from search snippet
+     */
+    private extractIngredientsFromSnippet(snippet: string): string[] {
+        if (!snippet || snippet.length < 10) return [];
+        
+        // Look for ingredient-like patterns: quantities with units
+        const ingredientPatterns = [
+            /(\d+(?:\.\d+)?(?:\/\d+)?)\s*(?:כוס|כוסות|כף|כפות|כפית|כפיות|ק"ג|גרם|מ"ל|ליטר|יח|יחידות|קורט|שיני|שן|פרוסות?|חבילות?|קופסאות?)/g,
+            /(\d+)\s*(?:cup|cups|tbsp|tsp|kg|g|grams?|ml|liter|piece|pieces|clove|cloves)/gi,
+        ];
+        
+        const ingredients: string[] = [];
+        
+        // Split by common separators
+        const parts = snippet.split(/[,;•·|\-\n]/).map(p => p.trim()).filter(p => p.length > 3 && p.length < 100);
+        
+        for (const part of parts) {
+            // Check if it looks like an ingredient (has quantity or common ingredient words)
+            const hasQuantity = ingredientPatterns.some(pattern => pattern.test(part));
+            const hasIngredientWords = /(?:עגבנ|בצל|שום|שמן|מלח|פלפל|סוכר|קמח|ביצ|חלב|גבינ|חמא|לימון|עשבי|תיבול|פסטה|אורז|בשר|עוף|דג|ירק|פירות|שוקולד|וניל|קינמון|אורגנו|בזיליקום)/i.test(part);
+            
+            if (hasQuantity || (hasIngredientWords && part.length < 60)) {
+                ingredients.push(part.replace(/\s+/g, ' ').trim());
+            }
+        }
+        
+        return ingredients.slice(0, 4);
+    }
+
+    /**
      * Primary search: Serper.dev (Google SERP API)
      * Free tier: 2,500 queries, no credit card required
-     * Runs both Hebrew and English queries for multilingual results.
+     * Runs multiple search variations to get 20+ results.
      */
     private async searchWithSerper(query: string): Promise<SearchResult[]> {
         const isHebrewQuery = HEBREW_REGEX.test(query);
-        const hebrewQuery = `${query} מתכון`;
+        
+        // Build multiple search variations to get more results
+        const searchVariations: Array<{ q: string; gl: string; hl: string }> = [
+            { q: `${query} מתכון`, gl: 'il', hl: 'he' },
+            { q: `${query} מתכון מנות`, gl: 'il', hl: 'he' },
+        ];
+        
+        // If Hebrew query, also search English variations
+        if (isHebrewQuery) {
+            const englishQuery = query.replace(/[\u0590-\u05FF]/g, '').trim() || query;
+            searchVariations.push(
+                { q: `${englishQuery} recipe`, gl: 'us', hl: 'en' },
+                { q: `${englishQuery} how to make`, gl: 'us', hl: 'en' }
+            );
+        } else {
+            searchVariations.push(
+                { q: `${query} recipe`, gl: 'us', hl: 'en' },
+                { q: `${query} homemade`, gl: 'us', hl: 'en' }
+            );
+        }
 
-        // Build search promises: always Hebrew, optionally English
-        const hebrewSearch = axios.post<any>(
-            'https://google.serper.dev/search',
-            { q: hebrewQuery, gl: 'il', hl: 'he', num: 30 },
-            {
-                headers: { 'X-API-KEY': this.serperApiKey, 'Content-Type': 'application/json' },
-                timeout: 8000
-            }
+        // Execute all searches in parallel
+        const searchPromises = searchVariations.map(variation =>
+            axios.post<any>(
+                'https://google.serper.dev/search',
+                { ...variation, num: 10 },
+                {
+                    headers: { 'X-API-KEY': this.serperApiKey, 'Content-Type': 'application/json' },
+                    timeout: 10000
+                }
+            ).catch(() => null)
         );
 
-        // If query is Hebrew, also search in English for international results
-        const responses = isHebrewQuery
-            ? await Promise.allSettled([
-                hebrewSearch,
-                (async () => {
-                    try {
-                        return await axios.post<any>(
-                            'https://google.serper.dev/search',
-                            { q: `${query} recipe`, gl: 'us', hl: 'en', num: 15 },
-                            {
-                                headers: { 'X-API-KEY': this.serperApiKey, 'Content-Type': 'application/json' },
-                                timeout: 8000
-                            }
-                        );
-                    } catch { return null; }
-                })()
-            ])
-            : await Promise.allSettled([hebrewSearch]);
+        const responses = await Promise.all(searchPromises);
 
         // Merge organic results from all responses
         let allOrganic: any[] = [];
         for (const resp of responses) {
-            if (resp.status === 'fulfilled' && resp.value?.data?.organic) {
-                allOrganic = allOrganic.concat(resp.value.data.organic);
+            if (resp && (resp as any).data?.organic) {
+                allOrganic = allOrganic.concat((resp as any).data.organic);
             }
         }
 
-        // Deduplicate by link
+        // Deduplicate by link and score by relevance
         const seenUrls = new Set<string>();
-        const organic = allOrganic.filter((item: any) => {
-            if (!item.link || seenUrls.has(item.link)) return false;
-            seenUrls.add(item.link);
-            return true;
-        });
-
-        const results = organic
-            .filter((item: any) => item.link && item.title)
-            .slice(0, 30)
-            .map((item: any) => ({
-                title: item.title,
-                url: item.link,
-                snippet: item.snippet || '',
-                sourceName: item.source || new URL(item.link).hostname
-            }));
+        const scored = allOrganic
+            .filter((item: any) => {
+                if (!item.link || seenUrls.has(item.link)) return false;
+                seenUrls.add(item.link);
+                return true;
+            })
+            .map((item: any) => {
+                // Score by relevance to query
+                const titleLower = (item.title || '').toLowerCase();
+                const snippetLower = (item.snippet || '').toLowerCase();
+                const queryLower = query.toLowerCase();
+                let score = 0;
+                
+                if (titleLower.includes(queryLower)) score += 10;
+                if (snippetLower.includes(queryLower)) score += 5;
+                if (titleLower.includes('recipe') || titleLower.includes('מתכון')) score += 3;
+                if (/\d+\s*(min|דקות|hour|שעות)/.test(item.snippet || '')) score += 2;
+                
+                return {
+                    title: item.title,
+                    url: item.link,
+                    snippet: item.snippet || '',
+                    sourceName: item.source || new URL(item.link).hostname,
+                    score
+                };
+            })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 25); // Top 25 results
 
         // Enrich results with recipe parsing (with timeout)
         const enriched = await Promise.allSettled(
-            results.map(async (item: { title: string; url: string; snippet: string; sourceName: string }) => {
+            scored.map(async (item) => {
+                // Extract time from snippet/title
+                const extractedTime = this.extractTimeFromText(item.snippet) || this.extractTimeFromText(item.title);
+                
+                // Extract ingredients from snippet
+                const extractedIngredients = this.extractIngredientsFromSnippet(item.snippet);
+                
                 const basicResult: SearchResult = {
                     sourceUrl: item.url,
                     title: item.title,
                     sourceName: item.sourceName,
-                    ingredientsPreview: item.snippet ? [item.snippet] : [],
+                    totalTime: extractedTime,
+                    ingredientsPreview: extractedIngredients.length > 0 ? extractedIngredients : [item.snippet.substring(0, 100)],
                     tags: []
                 };
 
                 try {
                     const timeoutPromise = new Promise<null>((_, reject) =>
-                        setTimeout(() => reject(new Error('Parsing timeout')), 5000)
+                        setTimeout(() => reject(new Error('Parsing timeout')), 4000)
                     );
                     const parsePromise = this.parserService.extractRecipeSummary(item.url, item.title, item.sourceName);
                     const summary = await Promise.race([parsePromise, timeoutPromise]);
-                    if (summary) return summary;
+                    
+                    if (summary) {
+                        // Merge extracted data with parsed data
+                        return {
+                            ...summary,
+                            totalTime: summary.totalTime || extractedTime,
+                            ingredientsPreview: summary.ingredientsPreview?.length ? summary.ingredientsPreview : extractedIngredients
+                        };
+                    }
                 } catch {
-                    // Parsing failed or timed out
+                    // Parsing failed or timed out - use basic result
                 }
 
                 return basicResult;

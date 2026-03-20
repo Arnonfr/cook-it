@@ -9,6 +9,7 @@ const parsePort = (value: string | undefined, fallback: number) => {
     return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+// Mutable at runtime — settings endpoint can update keys without full restart
 export const env = {
     port: parsePort(process.env.PORT, 3001),
     databaseUrl: process.env.DATABASE_URL || 'file:./dev.db',
