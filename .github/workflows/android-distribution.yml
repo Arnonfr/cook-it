@@ -73,7 +73,7 @@ jobs:
         continue-on-error: true
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
-          appId: ${{ secrets.FIREBASE_APP_ID_ANDROID }}
+          appId: 1:629153402724:android:fb933cd078c975a42c3471
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           groups: testers
           testers: arnon7700@gmail.com
@@ -147,7 +147,7 @@ jobs:
       - name: Distribute Release to Firebase
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
-          appId: ${{ secrets.FIREBASE_APP_ID_ANDROID }}
+          appId: 1:629153402724:android:fb933cd078c975a42c3471
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           groups: testers
           file: ${{ steps.sign_app.outputs.signedReleaseFile }}
