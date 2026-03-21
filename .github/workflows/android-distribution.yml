@@ -98,11 +98,14 @@ jobs:
         run: |
           echo "🚀 Setting up Android emulator..."
           
+          # Add emulator to PATH
+          export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools
+          
           # Create emulator
           echo "no" | avdmanager create avd -n test_emulator -k "system-images;android-34;google_apis;x86_64" --force
           
           # Start emulator in background
-          emulator -avd test_emulator -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim &
+          $ANDROID_HOME/emulator/emulator -avd test_emulator -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim &
           EMULATOR_PID=$!
           
           # Wait for emulator to boot
