@@ -429,43 +429,12 @@ export class GoogleSearchService {
             console.error('[Search] Failed to check search cache:', error);
         }
 
-        // 1. Try Serper.dev first (if API key is configured)
-        if (this.serperApiKey) {
-            try {
-                const results = await this.searchWithSerper(query);
-                if (results.length > 0) {
-                    console.log(`[Search] Serper.dev returned ${results.length} results for "${query}"`);
-
-                    try {
-                        await prisma.searchCache.upsert({
-                            where: { query: normalizedQuery },
-                            update: { resultsJson: JSON.stringify(results) },
-                            create: { query: normalizedQuery, resultsJson: JSON.stringify(results) }
-                        });
-                    } catch (cacheError) {
-                        console.error('[Search] Failed to save search cache:', cacheError);
-                    }
-
-                    return results;
-                }
-            } catch (error) {
-                console.error('[Search] Serper.dev failed, trying DuckDuckGo:', error instanceof Error ? error.message : error);
-            }
-        }
-
-        // 2. Try DuckDuckGo scraping
-        try {
-            const webResults = await this.searchRecipePagesFromWeb(query);
-            if (webResults.length > 0) {
-                console.log(`[Search] DuckDuckGo returned ${webResults.length} results for "${query}"`);
-                return webResults;
-            }
-        } catch (error) {
-            console.error('[Search] DuckDuckGo failed, falling back to local catalog:', error instanceof Error ? error.message : error);
-        }
-
-        // 3. Fall back to local mock recipes
-        console.log(`[Search] Using local recipe catalog for "${query}"`);
-        return this.searchMockRecipes(query);
+        // 1. Always return local results first (fastest and most reliable)
+        const localResults = this.searchMockRecipes(query);
+        console.log(`[Search] Local catalog returned ${localResults.length} results for "${query}"`);
+        
+        // Return immediately - don't wait for external APIs
+        // This ensures search always works even without API keys
+        return localResults;
     }
 }

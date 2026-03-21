@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
-import { ExternalLink, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ShareToastProps {
   recipeUrl: string;
   recipeTitle?: string;
   isExtracting: boolean;
-  onOpen: () => void;
   onDismiss: () => void;
 }
 
-export const ShareToast = ({ recipeUrl: _recipeUrl, recipeTitle, isExtracting, onOpen, onDismiss }: ShareToastProps) => {
+export const ShareToast = ({ recipeUrl: _recipeUrl, recipeTitle, isExtracting, onDismiss }: ShareToastProps) => {
   const [progress, setProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -44,11 +43,6 @@ export const ShareToast = ({ recipeUrl: _recipeUrl, recipeTitle, isExtracting, o
   const handleDismiss = () => {
     setIsVisible(false);
     setTimeout(onDismiss, 300);
-  };
-
-  const handleOpen = () => {
-    onOpen();
-    handleDismiss();
   };
 
   const handleMinimize = () => {
@@ -136,14 +130,14 @@ export const ShareToast = ({ recipeUrl: _recipeUrl, recipeTitle, isExtracting, o
               </button>
             )}
             
-            {/* Open button - shown when done */}
+            {/* Close button - shown when done */}
             {!isExtracting && (
               <button
-                onClick={handleOpen}
-                className="flex items-center gap-0.5 px-2 h-[24px] bg-[#2f6d63] text-white text-[11px] font-medium rounded-[4px] hover:bg-[#285c54] transition-colors"
+                onClick={handleDismiss}
+                className="flex items-center justify-center w-6 h-6 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                title="סגור"
               >
-                <ExternalLink size={12} />
-                פתיחה
+                <span className="text-[14px] leading-none">×</span>
               </button>
             )}
           </div>

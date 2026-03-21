@@ -617,24 +617,35 @@ export const App = () => {
   }>({ show: false, url: '', recipe: null });
 
   // Handle shared URL with toast (used by Android integration)
+  // Just shows toast in background, doesn't open the app
   const handleSharedUrl = async (url: string) => {
     console.log('handleSharedUrl called:', url);
     setShareToast({ show: true, url, recipe: null });
     console.log('Toast state set to show');
     
     try {
-      // Extract recipe in background
+      // Extract recipe in background - user stays in browser
       const recipe = await parseRecipe(url, MOCK_USER_ID);
       
-      // Update toast with success
+      // Update toast with success but don't open
       setShareToast({ show: true, url, recipe });
       
-      // Refresh library
+      // Refresh library in background
       void loadLibrary();
+      
+      // Auto dismiss after 3 seconds
+      setTimeout(() => {
+        setShareToast(prev => ({ ...prev, show: false }));
+      }, 3000);
     } catch (error) {
       console.error('Failed to extract shared recipe:', error);
       // Still show toast but without recipe
       setShareToast({ show: true, url, recipe: null });
+      
+      // Auto dismiss after 3 seconds
+      setTimeout(() => {
+        setShareToast(prev => ({ ...prev, show: false }));
+      }, 3000);
     }
   };
 
@@ -1169,12 +1180,6 @@ export const App = () => {
           recipeUrl={shareToast.url}
           recipeTitle={shareToast.recipe?.title}
           isExtracting={!shareToast.recipe}
-          onOpen={() => {
-            if (shareToast.recipe) {
-              setSelectedRecipe(shareToast.recipe);
-              setView('recipe');
-            }
-          }}
           onDismiss={() => setShareToast({ show: false, url: '', recipe: null })}
         />
       )}
