@@ -181,16 +181,16 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f0f5f4] pb-28" dir="rtl">
+    <div dir="rtl">
       {/* Header */}
-      <div className="sticky top-0 z-20 flex items-center gap-3 bg-white/90 px-4 py-4 shadow-sm backdrop-blur-md border-b border-slate-100">
+      <div className="flex items-center gap-3 mb-6">
         <button onClick={onBack} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200">
           <ChevronRight size={20} />
         </button>
         <h1 className="text-base font-normal text-slate-700">פרופיל</h1>
       </div>
 
-      <div className="mx-auto max-w-[460px] px-4 py-6 space-y-5">
+      <div className="space-y-5 pb-24">
         {/* Avatar + Name */}
         <div className="rounded-[24px] bg-white border border-slate-100 shadow-sm p-5 flex flex-col items-center gap-3">
           <div className="h-20 w-20 rounded-full bg-gradient-to-br from-[#2f6d63] to-[#6ee7b7] flex items-center justify-center text-white text-3xl font-medium shadow-md">
@@ -281,6 +281,106 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
           ) : (
             <p className="text-[13px] text-slate-400 text-center py-2">לא ניתן להתחבר לשרת</p>
           )}
+        </div>
+
+        {/* Cooking Preferences */}
+        <div className="rounded-[24px] bg-white border border-slate-100 shadow-sm p-5">
+          <h2 className="mb-4 text-sm font-normal text-slate-700 flex items-center gap-2">
+            <Clock3 size={16} className="text-[#2f6d63]" />
+            העדפות בישול
+          </h2>
+          
+          {/* Default Servings */}
+          <div className="mb-4">
+            <label className="text-[13px] text-slate-500 block mb-2">מספר מנות ברירת מחדל</label>
+            <div className="flex gap-2">
+              {[2, 4, 6, 8].map(num => (
+                <button
+                  key={num}
+                  onClick={() => localStorage.setItem('default_servings', String(num))}
+                  className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${
+                    (localStorage.getItem('default_servings') || '4') === String(num)
+                      ? 'bg-[#2f6d63] text-white'
+                      : 'bg-slate-50 text-slate-600 border border-slate-200'
+                  }`}
+                >
+                  {num}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Preferred Cooking Time */}
+          <div>
+            <label className="text-[13px] text-slate-500 block mb-2">זמן בישול מועדף</label>
+            <div className="flex gap-2">
+              {[
+                { key: 'quick', label: 'מהיר', desc: 'עד 30 דקות' },
+                { key: 'medium', label: 'בינוני', desc: '30-60 דקות' },
+                { key: 'any', label: 'ללא הגבלה', desc: 'הכל' }
+              ].map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => localStorage.setItem('preferred_time', opt.key)}
+                  className={`flex-1 py-2 px-1 rounded-xl text-center transition-all ${
+                    (localStorage.getItem('preferred_time') || 'any') === opt.key
+                      ? 'bg-[#e6fcf6] border-2 border-[#2f6d63]'
+                      : 'bg-slate-50 border-2 border-transparent'
+                  }`}
+                >
+                  <div className={`text-sm font-bold ${(localStorage.getItem('preferred_time') || 'any') === opt.key ? 'text-[#2f6d63]' : 'text-slate-600'}`}>
+                    {opt.label}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Preferred Cuisines */}
+        <div className="rounded-[24px] bg-white border border-slate-100 shadow-sm p-5">
+          <h2 className="mb-4 text-sm font-normal text-slate-700 flex items-center gap-2">
+            <Globe size={16} className="text-[#2f6d63]" />
+            סוגי מטבח מועדפים
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { id: 'israeli', label: 'ישראלי', emoji: '🇮🇱' },
+              { id: 'italian', label: 'איטלקי', emoji: '🇮🇹' },
+              { id: 'asian', label: 'אסייתי', emoji: '🍜' },
+              { id: 'mediterranean', label: 'ים תיכוני', emoji: '🫒' },
+              { id: 'mexican', label: 'מקסיקני', emoji: '🌮' },
+              { id: 'indian', label: 'הודי', emoji: '🍛' },
+              { id: 'french', label: 'צרפתי', emoji: '🥐' },
+              { id: 'american', label: 'אמריקאי', emoji: '🍔' }
+            ].map(cuisine => {
+              const preferred = JSON.parse(localStorage.getItem('preferred_cuisines') || '[]');
+              const isSelected = preferred.includes(cuisine.id);
+              return (
+                <button
+                  key={cuisine.id}
+                  onClick={() => {
+                    const current = JSON.parse(localStorage.getItem('preferred_cuisines') || '[]');
+                    const updated = current.includes(cuisine.id)
+                      ? current.filter((c: string) => c !== cuisine.id)
+                      : [...current, cuisine.id];
+                    localStorage.setItem('preferred_cuisines', JSON.stringify(updated));
+                    // Force re-render
+                    window.dispatchEvent(new Event('storage'));
+                  }}
+                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-bold transition-all ${
+                    isSelected
+                      ? 'border-[#2f6d63] bg-[#e6fcf6] text-[#2f6d63]'
+                      : 'border-slate-200 bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <span>{cuisine.emoji}</span>
+                  {cuisine.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* App info */}
@@ -834,9 +934,7 @@ export const App = () => {
     }
   };
 
-  if (view === 'profile') {
-    return <ProfileView onBack={() => setView(previousView)} />;
-  }
+  // Profile view is now rendered inside the main layout (see below)
 
   if (view === 'recipe' && selectedRecipe) {
     return (
@@ -1082,6 +1180,13 @@ export const App = () => {
                 )}
               </>
             )}
+          </section>
+        )}
+
+        {/* ─── PROFILE VIEW ─── */}
+        {view === 'profile' && (
+          <section className="mt-9">
+            <ProfileView onBack={() => setView('home')} />
           </section>
         )}
 
