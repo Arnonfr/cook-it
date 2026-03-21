@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Open Emulator in Browser",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:9223",
+      "webRoot": "${workspaceFolder}"
+    }
+  ]
+}
