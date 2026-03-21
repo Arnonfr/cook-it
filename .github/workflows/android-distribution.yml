@@ -69,7 +69,8 @@ jobs:
 
       # Distribute to Firebase App Distribution (only if service account is configured)
       - name: Distribute to Firebase
-        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && secrets.FIREBASE_SERVICE_ACCOUNT != ''
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        continue-on-error: true
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_APP_ID_ANDROID }}
