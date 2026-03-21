@@ -7,7 +7,6 @@ import {
   ChevronUp,
   Clock3,
   ExternalLink,
-  Gift,
   Globe,
   Home,
   Loader2,
@@ -188,13 +187,13 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
         <button onClick={onBack} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200">
           <ChevronRight size={20} />
         </button>
-        <h1 className="text-lg font-black text-slate-900">פרופיל</h1>
+        <h1 className="text-base font-normal text-slate-700">פרופיל</h1>
       </div>
 
       <div className="mx-auto max-w-[460px] px-4 py-6 space-y-5">
         {/* Avatar + Name */}
         <div className="rounded-[24px] bg-white border border-slate-100 shadow-sm p-5 flex flex-col items-center gap-3">
-          <div className="h-20 w-20 rounded-full bg-gradient-to-br from-[#2f6d63] to-[#6ee7b7] flex items-center justify-center text-white text-3xl font-black shadow-md">
+          <div className="h-20 w-20 rounded-full bg-gradient-to-br from-[#2f6d63] to-[#6ee7b7] flex items-center justify-center text-white text-3xl font-medium shadow-md">
             {name ? name.charAt(0).toUpperCase() : <User size={36} />}
           </div>
           {editingName ? (
@@ -221,7 +220,7 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
 
         {/* Dietary Restrictions */}
         <div className="rounded-[24px] bg-white border border-slate-100 shadow-sm p-5">
-          <h2 className="mb-1 text-[15px] font-black text-slate-900">הגבלות תזונתיות</h2>
+          <h2 className="mb-1 text-sm font-normal text-slate-700">הגבלות תזונתיות</h2>
           <p className="mb-4 text-[13px] text-slate-500">סמן את מה שאתה <span className="font-bold text-red-500">לא</span> אוכל</p>
           <div className="flex flex-wrap gap-2">
             {DIETARY_OPTIONS.map(opt => {
@@ -254,7 +253,7 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
         <div className="rounded-[24px] bg-white border border-slate-100 shadow-sm p-5">
           <div className="flex items-center gap-2 mb-4">
             <Key size={16} className="text-[#236EFF]" />
-            <h2 className="text-[15px] font-black text-slate-900">מפתחות API</h2>
+            <h2 className="text-sm font-normal text-slate-700">מפתחות API</h2>
           </div>
           {settingsLoading ? (
             <div className="flex justify-center py-4">
@@ -286,7 +285,7 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
 
         {/* App info */}
         <div className="rounded-[24px] bg-white border border-slate-100 shadow-sm p-5">
-          <h2 className="mb-3 text-[15px] font-black text-slate-900">על האפליקציה</h2>
+          <h2 className="mb-3 text-sm font-normal text-slate-700">על האפליקציה</h2>
           <div className="space-y-2 text-[13px] text-slate-500">
             <div className="flex justify-between"><span>גרסה</span><span className="font-bold text-slate-700">1.0.0</span></div>
             <div className="flex justify-between"><span>שפה</span><span className="font-bold text-slate-700">עברית</span></div>
@@ -319,11 +318,11 @@ const LANGUAGE_NAMES: Record<string, string> = {
 };
 
 const quickCategories = [
-  { label: 'מבצעים', icon: Gift, accent: 'bg-[#d8f5df] text-[#127a43]' },
   { label: 'אפייה', emoji: '🍞' },
   { label: 'אסייתי', emoji: '🍜' },
   { label: 'מרקים', emoji: '🥣' },
-  { label: 'מהיר', emoji: '⚡' },
+  { label: 'סלטים', emoji: '🥗' },
+  { label: 'עיקריות', emoji: '🍽️' },
 ];
 
 const formatDuration = (duration?: string) => {
@@ -923,15 +922,9 @@ export const App = () => {
                 className="min-w-[88px] shrink-0"
               >
                 <div className="flex h-[92px] w-[88px] items-center justify-center rounded-[16px] border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
-                  {'icon' in category && category.icon ? (
-                    <div className={`flex h-14 w-14 items-center justify-center rounded-[14px] ${category.accent} `}>
-                      <category.icon size={28} />
-                    </div>
-                  ) : (
-                    <div className="text-[2.2rem]">{category.emoji}</div>
-                  )}
+                  <div className="text-[2.2rem]">{category.emoji}</div>
                 </div>
-                <div className="mt-3 text-center text-sm font-bold text-slate-900">{category.label}</div>
+                <div className="mt-3 text-center text-sm font-normal text-slate-700">{category.label}</div>
               </button>
             ))}
           </div>
@@ -942,7 +935,7 @@ export const App = () => {
           <section className="mt-9">
             {/* Community Horizontal Scroll */}
             <div className="flex items-center justify-between">
-              <h2 className="text-[1.4rem] font-bold leading-none text-slate-950">מתכונים אחרונים מהקהילה</h2>
+              <h2 className="text-base font-normal leading-none text-slate-700">מתכונים אחרונים מהקהילה</h2>
             </div>
 
             {communityLoading ? (
@@ -967,7 +960,7 @@ export const App = () => {
 
             {/* My Recipes */}
             <div className="mt-10 flex items-center justify-between">
-              <h2 className="text-[1.4rem] font-bold leading-none text-slate-950">המתכונים שלי</h2>
+              <h2 className="text-base font-normal leading-none text-slate-700">המתכונים שלי</h2>
             </div>
 
             {libraryRecipes.length === 0 ? (
@@ -975,7 +968,7 @@ export const App = () => {
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
                   <BookOpen size={22} />
                 </div>
-                <h3 className="mt-4 text-lg font-bold text-slate-950">אין כרגע מתכונים</h3>
+                <h3 className="mt-4 text-sm font-normal text-slate-500">אין כרגע מתכונים</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-500">המתכונים שתחלץ יופיעו כאן באופן אוטומטי.</p>
               </div>
             ) : (
@@ -1027,7 +1020,7 @@ export const App = () => {
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
                   <BookOpen size={22} />
                 </div>
-                <h3 className="mt-4 text-lg font-bold text-slate-950">אין כרגע תוצאות</h3>
+                <h3 className="mt-4 text-sm font-normal text-slate-500">אין כרגע תוצאות</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-500">נסה חיפוש אחר או ייבוא מ־URL.</p>
               </div>
             ) : (
