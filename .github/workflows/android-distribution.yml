@@ -75,7 +75,6 @@ jobs:
         with:
           appId: 1:629153402724:android:fb933cd078c975a42c3471
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          groups: testers
           testers: arnon7700@gmail.com
           file: frontend/android/app/build/outputs/apk/debug/app-debug.apk
           releaseNotes: |
