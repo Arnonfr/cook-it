@@ -58,7 +58,7 @@ export class TranslationService {
         if (nonHebrewIndices.length === 0) return results;
 
         try {
-            const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite-preview' });
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
             const titlesToTranslate = nonHebrewIndices.map((i) => titles[i]);
 
             const prompt = `Translate these recipe titles to Hebrew and detect their original language.
@@ -102,7 +102,7 @@ Use ISO 639-1 codes. Keep proper nouns.`;
         if (!genAI) return null;
 
         try {
-            const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite-preview' });
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
             const compact = {
                 title: recipe.title,
