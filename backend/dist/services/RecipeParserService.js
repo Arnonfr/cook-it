@@ -852,6 +852,7 @@ ${cleanText.substring(0, 30000)}`;
                 const $clean = cheerio.load(html);
                 $clean('script, style, noscript, iframe, img, svg, video, audio, source, track, canvas, map, object, embed, footer, nav, aside, header, [class*="comment"], [class*="sidebar"], [id*="comment"], [id*="sidebar"]').remove();
                 const cleanText = $clean('body').text().replace(/\s+/g, ' ').trim();
+                console.log(`[Recipe] Clean text length: ${cleanText.length}`);
                 if (cleanText.length > 100) {
                     const geminiRecipe = await this.extractWithGemini(cleanText, url, metadata);
                     if (geminiRecipe && geminiRecipe.ingredients.length >= 2 && geminiRecipe.steps.length >= 1) {
