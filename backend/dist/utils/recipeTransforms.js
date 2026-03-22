@@ -1,6 +1,22 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.mockRecipeToParsedRecipe = exports.mockRecipeToSearchResult = exports.parseIngredientLine = void 0;
+function ingredientMentionedInStep(ingName, stepText) {
+    if (!ingName || !stepText)
+        return false;
+    if (stepText.includes(ingName))
+        return true;
+    const cleanName = ingName.replace(/^(ה|ב|ל|מ|כ)/, '');
+    if (cleanName.length > 2 && stepText.includes(cleanName))
+        return true;
+    const words = ingName.split(/\s+/).filter(w => w.length > 2);
+    return words.some(word => {
+        if (stepText.includes(word))
+            return true;
+        const cleanWord = word.replace(/^(ה|ב|ל|מ|כ)/, '');
+        return cleanWord.length > 2 && stepText.includes(cleanWord);
+    });
+}
 const parseIngredientLine = (line, id) => {
     const match = line.match(/^([\d./]+)?\s*([^\s\d]+)?\s+(.*)$/u);
     return {
@@ -25,19 +41,18 @@ const mockRecipeToSearchResult = (recipe) => ({
 });
 exports.mockRecipeToSearchResult = mockRecipeToSearchResult;
 const mockRecipeToParsedRecipe = (recipe) => {
-    const ingredients = recipe.ingredients.map((line, index) => (0, exports.parseIngredientLine)(line, index + 1));
-    const steps = recipe.steps.map((text, index) => {
+    const ingredients = recipe.ingredients.map((item, index) => {
+        const line = typeof item === 'string' ? item : item.text;
+        const section = typeof item === 'string' ? undefined : item.section;
+        return { ...(0, exports.parseIngredientLine)(line, index + 1), section };
+    });
+    const steps = recipe.steps.map((item, index) => {
+        const text = typeof item === 'string' ? item : item.text;
+        const section = typeof item === 'string' ? undefined : item.section;
         const ingredientIds = ingredients
-            .filter((ingredient) => {
-            const cleanName = ingredient.name.replace(/^(ה|ב|ל|מ|כ)/, '');
-            return text.includes(ingredient.name) || text.includes(cleanName);
-        })
-            .map((ingredient) => ingredient.id);
-        return {
-            stepNumber: index + 1,
-            text,
-            ingredientIds
-        };
+            .filter(ing => ingredientMentionedInStep(ing.name, text))
+            .map(ing => ing.id);
+        return { stepNumber: index + 1, text, ingredientIds, section };
     });
     return {
         title: recipe.title,

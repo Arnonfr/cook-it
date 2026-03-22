@@ -610,8 +610,9 @@ const RecipeListRow = ({
   const langCode = recipe.originalLanguage;
   const langName = langCode && langCode !== 'he' ? LANGUAGE_NAMES[langCode] || langCode : null;
   // Filter out scraped snippets masquerading as ingredients (too long, no quantity pattern)
+  // Allow items with numbers, measurements, or common ingredient words
   const validIngredients = (recipe.ingredientsPreview ?? []).filter(
-    s => s.length <= 60 && /\d|כוס|כף|גרם|מ"ל|יח|קורט/.test(s)
+    s => s.length <= 70 && /\d|כוס|כוסות|כף|כפות|כפית|כפיות|גרם|ק"ג|מ"ל|ליטר|יח|יחידה|קורט|שן|שיני|פרוס|חביל|קופס|שוקולד|בצל|שום|שמן|מלח|פלפל|סוכר|קמח|ביצ|חלב|גבינ|חמא|לימון|עשבי|תיבול|פסטה|אורז|בשר|עוף|דג|ירק|פירות|קינמון|אורגנו|בזיליקום|עגבנ|גזר|תפוח|תפו"א|בטטה|חציל|פטרי|תירס|נענע|פטרוזיליה|כוסברה|שמיר|סלרי|כרוב|חסה|מלפפון|אבוקדו|בננה|תפוז|לימון|תות|תפוח|אגס|שזיף|אפרסק|מנגו|אננס|דובדבן|אגוז|שקד|אגס|קישוא|פלפל|חלה|לחם|עוגה|בבקה|סופלה|מאפה|פשטידה|קציץ|סטייק|נתח|שניצל|כרעיים|כנף|חזה|שוק|בשר|טחון|עוף|הודו|ברווז|כבש|בקר|עגל|סלמון|אמנון|לברק|דניס|מושט|טונה|סרדין|מרלוז|קוד|פילה/i.test(s)
   );
 
   return (

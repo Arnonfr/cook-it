@@ -12,9 +12,12 @@ const parsePort = (value, fallback) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
 };
+// Mutable at runtime — settings endpoint can update keys without full restart
 exports.env = {
     port: parsePort(process.env.PORT, 3001),
     databaseUrl: process.env.DATABASE_URL || 'file:./dev.db',
     googleApiKey: process.env.GOOGLE_API_KEY?.trim() || 'MOCK_FOR_NOW',
     googleCx: process.env.GOOGLE_CX?.trim() || 'MOCK_FOR_NOW',
+    serperApiKey: process.env.SERPER_API_KEY?.trim() || '',
+    geminiApiKey: process.env.GEMINI_API_KEY?.trim() || '',
 };

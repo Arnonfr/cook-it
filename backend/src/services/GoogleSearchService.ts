@@ -297,7 +297,7 @@ export class GoogleSearchService {
                     title: item.title,
                     sourceName: item.sourceName,
                     totalTime: extractedTime,
-                    ingredientsPreview: extractedIngredients.length > 0 ? extractedIngredients : [item.snippet.substring(0, 100)],
+                    ingredientsPreview: extractedIngredients,
                     tags: []
                 };
 
@@ -378,7 +378,7 @@ export class GoogleSearchService {
                     sourceUrl: item.url,
                     title: item.title,
                     sourceName: item.sourceName,
-                    ingredientsPreview: item.snippet ? [item.snippet] : [],
+                    ingredientsPreview: this.extractIngredientsFromSnippet(item.snippet),
                     tags: []
                 };
 
