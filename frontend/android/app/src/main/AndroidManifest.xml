@@ -44,6 +44,14 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".BubbleActivity"
+            android:theme="@android:style/Theme.DeviceDefault.Light.Dialog"
+            android:exported="false"
+            android:allowEmbedded="true"
+            android:documentLaunchMode="always"
+            android:resizeableActivity="true" />
+
         <service android:name=".RecipeOverlayService" android:exported="false" />
 
         <provider
@@ -63,4 +71,7 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
+    <!-- Bubble API for Android 11+ -->
+    <uses-permission android:name="android.permission.BROADCAST_STICKY" />
 </manifest>
