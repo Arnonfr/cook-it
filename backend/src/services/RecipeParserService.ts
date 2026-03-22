@@ -49,10 +49,12 @@ export class RecipeParserService {
         };
 
         try {
+            console.log(`[Recipe] Fetching HTML from: ${url}`);
             const { data: html } = await axios.get<string>(url, {
                 timeout,
                 headers,
             });
+            console.log(`[Recipe] HTML fetched successfully, length: ${html.length}`);
             return html;
         } catch (firstError: any) {
             // Retry once with a simpler request (some sites block complex headers)

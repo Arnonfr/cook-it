@@ -83,10 +83,12 @@ class RecipeParserService {
             'Upgrade-Insecure-Requests': '1',
         };
         try {
+            console.log(`[Recipe] Fetching HTML from: ${url}`);
             const { data: html } = await axios_1.default.get(url, {
                 timeout,
                 headers,
             });
+            console.log(`[Recipe] HTML fetched successfully, length: ${html.length}`);
             return html;
         }
         catch (firstError) {
