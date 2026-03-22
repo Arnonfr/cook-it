@@ -1,25 +1,38 @@
+# Render.com deployment configuration
+# DO NOT add API keys here - add them in Render Dashboard → Environment Variables
+# See SECURITY.md for best practices
+
 services:
   - type: web
     name: cookit-api
     runtime: node
+    region: frankfurt  # Close to Israel for lower latency
     buildCommand: cd backend && npm install && npx prisma generate && npx prisma migrate deploy && npm run build
     startCommand: cd backend && node dist/index.js
+    healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
         fromDatabase:
           name: cookit-db
           property: connectionString
+      # Add these in Render Dashboard (NOT here!):
+      # - GEMINI_API_KEY: Your Google AI Studio key
+      # - SERPER_API_KEY: Your Serper.dev key
       - key: GEMINI_API_KEY
-        sync: false
+        sync: false  # Will be set in dashboard
       - key: SERPER_API_KEY
-        sync: false
+        sync: false  # Will be set in dashboard
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+    autoDeploy: true  # Deploy on every push to main
 
+# Note: Render free tier sleeps after 15 min of inactivity
+# First request after sleep takes ~30 seconds to wake up
 databases:
   - name: cookit-db
     databaseName: cookit
     user: cookit
     plan: free
+    ipAllowList: []  # Allow all (required for Render web service)

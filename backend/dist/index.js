@@ -5,12 +5,41 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const helmet_1 = __importDefault(require("helmet"));
+const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const client_1 = require("@prisma/client");
 const env_1 = require("./config/env");
 const app = (0, express_1.default)();
 const prisma = new client_1.PrismaClient();
 const port = env_1.env.port;
-app.use((0, cors_1.default)());
+// Security headers
+app.use((0, helmet_1.default)({
+    contentSecurityPolicy: false, // Allow mixed content for development
+}));
+// CORS - restrict to your app in production
+const corsOptions = {
+    origin: process.env.NODE_ENV === 'production'
+        ? ['https://cookit-api.onrender.com', /capacitor:\/\//]
+        : true,
+    credentials: true,
+};
+app.use((0, cors_1.default)(corsOptions));
+// Rate limiting - protect API keys from abuse
+const apiLimiter = (0, express_rate_limit_1.default)({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 50, // limit each IP to 50 requests per windowMs
+    message: { error: 'Too many requests, please try again later' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.use('/api/', apiLimiter);
+// Stricter rate limiting for expensive operations (Gemini API)
+const parseLimiter = (0, express_rate_limit_1.default)({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 20, // limit each IP to 20 recipe parses per hour
+    message: { error: 'Recipe parse limit reached, please try again later' },
+});
+app.use('/api/parse', parseLimiter);
 app.use(express_1.default.json());
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', time: new Date() });

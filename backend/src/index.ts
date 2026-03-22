@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { PrismaClient } from '@prisma/client';
 import { env } from './config/env';
 
@@ -7,7 +9,38 @@ const app = express();
 const prisma = new PrismaClient();
 const port = env.port;
 
-app.use(cors());
+// Security headers
+app.use(helmet({
+    contentSecurityPolicy: false, // Allow mixed content for development
+}));
+
+// CORS - restrict to your app in production
+const corsOptions = {
+    origin: process.env.NODE_ENV === 'production' 
+        ? ['https://cookit-api.onrender.com', /capacitor:\/\//] 
+        : true,
+    credentials: true,
+};
+app.use(cors(corsOptions));
+
+// Rate limiting - protect API keys from abuse
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 50, // limit each IP to 50 requests per windowMs
+    message: { error: 'Too many requests, please try again later' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.use('/api/', apiLimiter);
+
+// Stricter rate limiting for expensive operations (Gemini API)
+const parseLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 20, // limit each IP to 20 recipe parses per hour
+    message: { error: 'Recipe parse limit reached, please try again later' },
+});
+app.use('/api/parse', parseLimiter);
+
 app.use(express.json());
 
 app.get('/health', (req, res) => {
