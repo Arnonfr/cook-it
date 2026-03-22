@@ -81,7 +81,7 @@ export const ShareToast = ({ recipeUrl: _recipeUrl, recipeTitle, isExtracting, o
   // Expanded state - compact toast (40px height)
   return (
     <div 
-      className={`fixed bottom-[33vh] left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ease-out ${
+      className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ease-out ${
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
       }`}
     >
