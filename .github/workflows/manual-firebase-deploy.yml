@@ -1,0 +1,23 @@
+name: Manual Firebase Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Latest Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-debug
+          path: ./apk
+          
+      - name: Distribute to Firebase
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: 1:629153402724:android:fb933cd078c975a42c3471
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          testers: arnon7700@gmail.com
+          file: ./apk/app-debug.apk
+          releaseNotes: "Manual deploy - $(date)"
