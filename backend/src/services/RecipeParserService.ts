@@ -59,15 +59,24 @@ export class RecipeParserService {
             return html;
         } catch (firstError: any) {
             // Retry once with a simpler request (some sites block complex headers)
-            if (firstError?.response?.status === 403 || firstError?.code === 'ECONNABORTED') {
-                console.log(`[Recipe] Retrying fetch for "${url}" with simpler headers...`);
-                const { data: html } = await axios.get<string>(url, {
-                    timeout: 12000,
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-                    },
-                });
-                return html;
+            const status = firstError?.response?.status;
+            if (status === 403 || status === 402 || status === 401 || firstError?.code === 'ECONNABORTED') {
+                console.log(`[Recipe] Retrying fetch for "${url}" with Googlebot headers (was ${status || firstError?.code})...`);
+                try {
+                    const { data: html } = await axios.get<string>(url, {
+                        timeout: 12000,
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                            'Accept-Language': 'en-US,en;q=0.5',
+                        },
+                    });
+                    console.log(`[Recipe] Retry successful, length: ${html.length}`);
+                    return html;
+                } catch (retryError) {
+                    console.log(`[Recipe] Retry failed: ${retryError}`);
+                    throw firstError;
+                }
             }
             throw firstError;
         }
