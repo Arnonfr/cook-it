@@ -61,14 +61,6 @@ jobs:
           echo "PORT=3001" >> .env
           echo "✅ Backend .env created"
 
-      # Setup Firebase configuration
-      - name: Setup Firebase
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: |
-          chmod +x .github/workflows/scripts/setup-firebase.sh
-          .github/workflows/scripts/setup-firebase.sh "$FIREBASE_SERVICE_ACCOUNT"
-
       # Run Unit Tests
       - name: Run Unit Tests
         working-directory: ./frontend/android
@@ -95,18 +87,22 @@ jobs:
       # Distribute to Firebase App Distribution
       - name: Distribute to Firebase
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        uses: wzieba/Firebase-Distribution-Github-Action@v1.7.0
         with:
-          appId: 1:629153402724:android:fb933cd078c975a42c3471
+          appId: ${{ secrets.FIREBASE_APP_ID || '1:629153402724:android:fb933cd078c975a42c3471' }}
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          testers: arnon7700@gmail.com
+          testers: ${{ secrets.FIREBASE_TESTERS || 'arnon7700@gmail.com' }}
           file: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          debug: true
           releaseNotes: |
-            ✅ Build: ${{ github.run_number }}
-            ✅ Tests passed
+            🍳 CookIt Build ${{ github.run_number }}
+            
+            ✅ חיפוש מתכונים
+            ✅ שמירת מתכונים  
+            ✅ שיתוף מדפדפן
+            
             Commit: ${{ github.sha }}
             Branch: ${{ github.ref_name }}
-            Message: ${{ github.event.head_commit.message }}
 
   build-release:
     runs-on: ubuntu-latest
@@ -169,14 +165,15 @@ jobs:
 
       # Distribute Release to Firebase
       - name: Distribute Release to Firebase
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        uses: wzieba/Firebase-Distribution-Github-Action@v1.7.0
         with:
-          appId: 1:629153402724:android:fb933cd078c975a42c3471
+          appId: ${{ secrets.FIREBASE_APP_ID || '1:629153402724:android:fb933cd078c975a42c3471' }}
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          testers: arnon7700@gmail.com
+          testers: ${{ secrets.FIREBASE_TESTERS || 'arnon7700@gmail.com' }}
           file: ${{ steps.sign_app.outputs.signedReleaseFile }}
+          debug: true
           releaseNotes: |
-            🎉 Release ${{ github.ref_name }}
+            🎉 CookIt Release ${{ github.ref_name }}
             
             Build: ${{ github.run_number }}
             Commit: ${{ github.sha }}
