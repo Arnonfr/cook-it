@@ -957,7 +957,13 @@ ${cleanText.substring(0, 30000)}`;
                         console.log(`[Recipe] Gemini extraction success: ${geminiRecipe.ingredients.length} ingredients, ${geminiRecipe.steps.length} steps`);
                         await this.cacheRecipe(url, geminiRecipe);
                         return geminiRecipe;
+                    } else {
+                        console.log('[Recipe] Gemini returned insufficient data, will try fallback');
+                        geminiFailed = true;
                     }
+                } else {
+                    console.log('[Recipe] Clean text too short, skipping Gemini');
+                    geminiFailed = true;
                 }
             } catch (geminiError: any) {
                 console.log(`[Recipe] Gemini extraction failed: ${geminiError?.message}`);

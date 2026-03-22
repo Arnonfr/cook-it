@@ -958,6 +958,14 @@ ${cleanText.substring(0, 30000)}`;
                         await this.cacheRecipe(url, geminiRecipe);
                         return geminiRecipe;
                     }
+                    else {
+                        console.log('[Recipe] Gemini returned insufficient data, will try fallback');
+                        geminiFailed = true;
+                    }
+                }
+                else {
+                    console.log('[Recipe] Clean text too short, skipping Gemini');
+                    geminiFailed = true;
                 }
             }
             catch (geminiError) {
