@@ -12,6 +12,8 @@ const env_1 = require("./config/env");
 const app = (0, express_1.default)();
 const prisma = new client_1.PrismaClient();
 const port = env_1.env.port;
+// Trust proxy (required for Render and express-rate-limit)
+app.set('trust proxy', 1);
 // Security headers
 app.use((0, helmet_1.default)({
     contentSecurityPolicy: false, // Allow mixed content for development
@@ -51,8 +53,11 @@ app.use((req, res, next) => {
 });
 const recipe_1 = __importDefault(require("./routes/recipe"));
 const settings_1 = __importDefault(require("./routes/settings"));
+console.log('[Routes] Loading recipe routes...');
 app.use('/api', recipe_1.default);
+console.log('[Routes] Loading settings routes...');
 app.use('/api/settings', settings_1.default);
+console.log('[Routes] All routes loaded successfully');
 const server = app.listen(port, () => {
     console.log(`Cookit Backend running on port ${port}`);
 });

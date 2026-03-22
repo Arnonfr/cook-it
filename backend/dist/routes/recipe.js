@@ -59,6 +59,17 @@ router.get('/ingredients/inventory', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch inventory' });
     }
 });
+// GET /api/recipes/featured - Featured recipes for home screen
+router.get('/recipes/featured', async (_req, res) => {
+    try {
+        const featuredRecipes = mockRecipes_1.mockRecipes.slice(0, 6).map(r => (0, recipeTransforms_1.mockRecipeToSearchResult)(r));
+        res.json({ recipes: featuredRecipes });
+    }
+    catch (error) {
+        console.error('Failed to fetch featured recipes:', error);
+        res.status(500).json({ error: 'Failed to fetch featured recipes' });
+    }
+});
 // GET /api/catalog - returns all built-in recipes (no API calls)
 router.get('/catalog', async (_req, res) => {
     try {
