@@ -1,18 +1,21 @@
 package com.cookit.app;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.provider.Settings;
 import android.util.Log;
-import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.NotificationCompat;
 
 public class ShareActivity extends AppCompatActivity {
     private static final String TAG = "ShareActivity";
-    private static final int REQUEST_OVERLAY_PERMISSION = 1001;
-    private String pendingUrl = null;
+    private static final String CHANNEL_ID = "cookit_share_channel";
+    private static final int NOTIFICATION_ID = 1001;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,97 +29,75 @@ public class ShareActivity extends AppCompatActivity {
             if ("text/plain".equals(type)) {
                 String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
                 if (sharedText != null) {
-                    // Extract URL from shared text
                     String url = extractUrl(sharedText);
                     if (url != null) {
                         Log.d(TAG, "Received shared URL: " + url);
                         handleSharedUrl(url);
-                        return; // Don't finish yet, wait for permission result if needed
+                        return;
                     }
                 }
             }
         }
         
-        // No valid URL found, close immediately
         finish();
     }
     
     private void handleSharedUrl(String url) {
-        // Check if we have overlay permission (needed for floating icon)
-        if (Settings.canDrawOverlays(this)) {
-            // Start overlay service to show floating icon
-            startOverlayService(url);
-            
-            // Show toast to user
-            Toast.makeText(this, "שומר מתכון...", Toast.LENGTH_SHORT).show();
-            
-            // Close immediately - don't switch to app
-            finish();
-        } else {
-            // No overlay permission - save URL for later and request permission
-            pendingUrl = url;
-            requestOverlayPermission();
-        }
-    }
-    
-    private void startOverlayService(String url) {
-        Intent serviceIntent = new Intent(this, RecipeOverlayService.class);
-        serviceIntent.putExtra("url", url);
+        // Create notification channel (required for Android O+)
+        createNotificationChannel();
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent);
-        } else {
-            startService(serviceIntent);
-        }
+        // Build notification
+        Notification notification = buildNotification(url);
         
-        // Also broadcast to MainActivity if it's running
+        // Show notification
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        manager.notify(NOTIFICATION_ID, notification);
+        
+        // Broadcast to MainActivity so it can show a toast when opened
         Intent broadcastIntent = new Intent("com.cookit.app.SHARED_URL");
         broadcastIntent.putExtra("url", url);
         sendBroadcast(broadcastIntent);
+        
+        // Close immediately - don't switch to app
+        finish();
     }
     
-    private void requestOverlayPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:" + getPackageName()));
-            startActivityForResult(intent, REQUEST_OVERLAY_PERMISSION);
-        } else {
-            // Older versions don't need permission, just proceed
-            if (pendingUrl != null) {
-                startOverlayService(pendingUrl);
-                finish();
-            }
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "שיתוף מתכונים",
+                    NotificationManager.IMPORTANCE_DEFAULT
+            );
+            channel.setDescription("התראות בעת שמירת מתכונים");
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            manager.createNotificationChannel(channel);
         }
     }
     
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_OVERLAY_PERMISSION) {
-            if (Settings.canDrawOverlays(this) && pendingUrl != null) {
-                // Permission granted, start overlay
-                startOverlayService(pendingUrl);
-                Toast.makeText(this, "שומר מתכון...", Toast.LENGTH_SHORT).show();
-            } else {
-                // Permission denied - fallback to opening app
-                Toast.makeText(this, "נדרשת הרשאה להצגת חלון צף", Toast.LENGTH_LONG).show();
-                openMainActivity(pendingUrl);
-            }
-            pendingUrl = null;
-            finish();
-        }
-    }
-    
-    private void openMainActivity(String url) {
-        Intent mainIntent = new Intent(this, MainActivity.class);
-        mainIntent.setAction(Intent.ACTION_VIEW);
-        mainIntent.setData(Uri.parse("cookit://parse?url=" + Uri.encode(url)));
-        mainIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(mainIntent);
+    private Notification buildNotification(String url) {
+        // Intent to open MainActivity when notification is tapped
+        Intent openIntent = new Intent(this, MainActivity.class);
+        openIntent.setAction(Intent.ACTION_VIEW);
+        openIntent.setData(Uri.parse("cookit://parse?url=" + Uri.encode(url)));
+        openIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 0, openIntent, 
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_menu_save)
+                .setContentTitle("CookIt")
+                .setContentText("מתכון נשמר לספרייה!")
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build();
     }
     
     private String extractUrl(String text) {
-        // Simple URL extraction - finds first URL in text
         String urlPattern = "(https?://[\\w\\-.]+(\\.[a-zA-Z]{2,})(:[0-9]+)?(/[^\\s]*)?)";
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(urlPattern);
         java.util.regex.Matcher matcher = pattern.matcher(text);
@@ -125,7 +106,6 @@ public class ShareActivity extends AppCompatActivity {
             return matcher.group(1);
         }
         
-        // If no URL found but text looks like a URL, return it
         if (text.startsWith("http://") || text.startsWith("https://")) {
             return text.split("\\s+")[0];
         }

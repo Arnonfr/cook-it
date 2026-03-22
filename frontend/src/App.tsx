@@ -158,6 +158,14 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
   const [nameInput, setNameInput] = useState(name);
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
+  
+  // New preference states
+  const [servings, setServings] = useState(() => localStorage.getItem('default_servings') || '4');
+  const [cookingTime, setCookingTime] = useState(() => localStorage.getItem('preferred_time') || 'any');
+  const [cuisines, setCuisines] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('preferred_cuisines') || '[]'); }
+    catch { return []; }
+  });
 
   useEffect(() => {
     fetchSettings()
@@ -178,6 +186,24 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
     setName(nameInput);
     localStorage.setItem('display_name', nameInput);
     setEditingName(false);
+  };
+  
+  const updateServings = (num: string) => {
+    setServings(num);
+    localStorage.setItem('default_servings', num);
+  };
+  
+  const updateCookingTime = (time: string) => {
+    setCookingTime(time);
+    localStorage.setItem('preferred_time', time);
+  };
+  
+  const toggleCuisine = (id: string) => {
+    setCuisines(prev => {
+      const next = prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id];
+      localStorage.setItem('preferred_cuisines', JSON.stringify(next));
+      return next;
+    });
   };
 
   return (
@@ -294,12 +320,12 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
           <div className="mb-4">
             <label className="text-[13px] text-slate-500 block mb-2">מספר מנות ברירת מחדל</label>
             <div className="flex gap-2">
-              {[2, 4, 6, 8].map(num => (
+              {['2', '4', '6', '8'].map(num => (
                 <button
                   key={num}
-                  onClick={() => localStorage.setItem('default_servings', String(num))}
+                  onClick={() => updateServings(num)}
                   className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${
-                    (localStorage.getItem('default_servings') || '4') === String(num)
+                    servings === num
                       ? 'bg-[#2f6d63] text-white'
                       : 'bg-slate-50 text-slate-600 border border-slate-200'
                   }`}
@@ -321,14 +347,14 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
               ].map(opt => (
                 <button
                   key={opt.key}
-                  onClick={() => localStorage.setItem('preferred_time', opt.key)}
+                  onClick={() => updateCookingTime(opt.key)}
                   className={`flex-1 py-2 px-1 rounded-xl text-center transition-all ${
-                    (localStorage.getItem('preferred_time') || 'any') === opt.key
+                    cookingTime === opt.key
                       ? 'bg-[#e6fcf6] border-2 border-[#2f6d63]'
                       : 'bg-slate-50 border-2 border-transparent'
                   }`}
                 >
-                  <div className={`text-sm font-bold ${(localStorage.getItem('preferred_time') || 'any') === opt.key ? 'text-[#2f6d63]' : 'text-slate-600'}`}>
+                  <div className={`text-sm font-bold ${cookingTime === opt.key ? 'text-[#2f6d63]' : 'text-slate-600'}`}>
                     {opt.label}
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5">{opt.desc}</div>
@@ -355,21 +381,12 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
               { id: 'french', label: 'צרפתי', emoji: '🥐' },
               { id: 'american', label: 'אמריקאי', emoji: '🍔' }
             ].map(cuisine => {
-              const preferred = JSON.parse(localStorage.getItem('preferred_cuisines') || '[]');
-              const isSelected = preferred.includes(cuisine.id);
+              const isSelected = cuisines.includes(cuisine.id);
               return (
                 <button
                   key={cuisine.id}
-                  onClick={() => {
-                    const current = JSON.parse(localStorage.getItem('preferred_cuisines') || '[]');
-                    const updated = current.includes(cuisine.id)
-                      ? current.filter((c: string) => c !== cuisine.id)
-                      : [...current, cuisine.id];
-                    localStorage.setItem('preferred_cuisines', JSON.stringify(updated));
-                    // Force re-render
-                    window.dispatchEvent(new Event('storage'));
-                  }}
-                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-bold transition-all ${
+                  onClick={() => toggleCuisine(cuisine.id)}
+                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-bold transition-all active:scale-95 ${
                     isSelected
                       ? 'border-[#2f6d63] bg-[#e6fcf6] text-[#2f6d63]'
                       : 'border-slate-200 bg-slate-50 text-slate-600'

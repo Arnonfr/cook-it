@@ -49,6 +49,18 @@ jobs:
         working-directory: ./frontend
         run: npx cap sync android
 
+      # Create backend .env with API keys
+      - name: Setup Backend Environment
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+        run: |
+          cd backend
+          echo "GEMINI_API_KEY=$GEMINI_API_KEY" > .env
+          echo "SERPER_API_KEY=$SERPER_API_KEY" >> .env
+          echo "PORT=3001" >> .env
+          echo "✅ Backend .env created"
+
       # Setup Firebase configuration
       - name: Setup Firebase
         env:
