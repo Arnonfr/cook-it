@@ -847,8 +847,10 @@ ${cleanText.substring(0, 30000)}`;
                 keywords
             };
             // === Strategy 1: Gemini AI extraction (primary — best quality) ===
+            console.log('[Recipe] Starting Strategy 1: Gemini extraction');
             try {
                 // Clean page text for AI
+                console.log('[Recipe] Loading HTML into cheerio...');
                 const $clean = cheerio.load(html);
                 $clean('script, style, noscript, iframe, img, svg, video, audio, source, track, canvas, map, object, embed, footer, nav, aside, header, [class*="comment"], [class*="sidebar"], [id*="comment"], [id*="sidebar"]').remove();
                 const cleanText = $clean('body').text().replace(/\s+/g, ' ').trim();
