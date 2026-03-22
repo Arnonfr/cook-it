@@ -246,6 +246,12 @@ class RecipeParserService {
         const sentenceParts = text.split(/\.\s+(?=[\u0590-\u05FF])/).map(s => s.trim().replace(/\.$/, '').trim()).filter(s => s.length > 10);
         if (sentenceParts.length >= 2)
             return sentenceParts;
+        // For very long texts (over 200 chars), try to split by newline or semicolon
+        if (text.length > 200) {
+            const newLineParts = text.split(/\n+|\r+|;/).map(s => s.trim()).filter(s => s.length > 20);
+            if (newLineParts.length >= 2)
+                return newLineParts;
+        }
         // Last resort — just return the whole text as one step
         return [text.trim()];
     }
@@ -462,6 +468,16 @@ class RecipeParserService {
         // Need at least some ingredients or steps to be viable
         if (ingredientLines.length < 2 && stepTexts.length < 1) {
             return null;
+        }
+        // If we have only one step and it's extremely long, try to split it more aggressively
+        if (stepTexts.length === 1 && stepTexts[0].length > 400) {
+            const aggressiveSplit = stepTexts[0]
+                .split(/[.!?]\s+/) // Split by sentence endings
+                .map(s => s.trim())
+                .filter(s => s.length > 15 && s.length < 300);
+            if (aggressiveSplit.length >= 2) {
+                stepTexts = aggressiveSplit;
+            }
         }
         // Clean up step texts — remove leading dashes/bullets
         stepTexts = stepTexts.map(s => s.replace(/^[\u2013\u2014–-]\s*/, '').trim()).filter(s => s.length > 5);
