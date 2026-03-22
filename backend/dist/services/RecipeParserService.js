@@ -941,6 +941,7 @@ ${cleanText.substring(0, 30000)}`;
         catch (e) { /* ignore DB errors */ }
     }
     async parseUrl(url) {
+        console.log(`[Recipe] parseUrl called: ${url}`);
         try {
             // Mock recipes
             const mockRecipe = mockRecipes_1.mockRecipes.find((recipe) => recipe.sourceUrl === url);
@@ -957,6 +958,7 @@ ${cleanText.substring(0, 30000)}`;
             catch (e) {
                 console.error('[Recipe] DB cache check failed:', e);
             }
+            console.log('[Recipe] About to fetch HTML...');
             // Fetch HTML
             const html = await this.fetchHtml(url, true);
             const { $, recipeJsonLd } = this.extractRecipeJsonLd(html);
