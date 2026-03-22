@@ -585,7 +585,7 @@ export class RecipeParserService {
         }
 
         const genAI = new GoogleGenerativeAI(env.geminiApiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
 
         const schema = {
             type: SchemaType.OBJECT,
