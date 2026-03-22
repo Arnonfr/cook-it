@@ -95,6 +95,7 @@ class RecipeParserService {
         catch (firstError) {
             // Retry once with a simpler request (some sites block complex headers)
             const status = firstError?.response?.status;
+            console.log(`[Recipe] Fetch error: status=${status}, code=${firstError?.code}, message=${firstError?.message?.substring(0, 100)}`);
             if (status === 403 || status === 402 || status === 401 || firstError?.code === 'ECONNABORTED') {
                 console.log(`[Recipe] Retrying fetch for "${url}" with Googlebot headers (was ${status || firstError?.code})...`);
                 try {
