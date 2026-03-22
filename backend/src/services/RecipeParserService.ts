@@ -60,7 +60,7 @@ export class RecipeParserService {
         } catch (firstError: any) {
             // Retry once with a simpler request (some sites block complex headers)
             const status = firstError?.response?.status;
-            console.log(`[Recipe] Fetch error: status=${status}, code=${firstError?.code}, message=${firstError?.message?.substring(0, 100)}`);
+            console.error(`[Recipe] Fetch error: status=${status}, code=${firstError?.code}, message=${firstError?.message?.substring(0, 100)}`);
             if (status === 403 || status === 402 || status === 401 || firstError?.code === 'ECONNABORTED') {
                 console.log(`[Recipe] Retrying fetch for "${url}" with Googlebot headers (was ${status || firstError?.code})...`);
                 try {
@@ -941,7 +941,7 @@ ${cleanText.substring(0, 30000)}`;
     }
 
     async parseUrl(url: string): Promise<ParsedRecipe> {
-        console.log(`[Recipe] parseUrl called: ${url}`);
+        console.error(`[Recipe] parseUrl called: ${url}`);
         try {
             // Mock recipes
             const mockRecipe = mockRecipes.find((recipe) => recipe.sourceUrl === url);
@@ -956,7 +956,7 @@ ${cleanText.substring(0, 30000)}`;
                 }
             } catch (e) { console.error('[Recipe] DB cache check failed:', e); }
 
-            console.log('[Recipe] About to fetch HTML...');
+            console.error('[Recipe] About to fetch HTML...');
             // Fetch HTML
             const html = await this.fetchHtml(url, true);
             const { $, recipeJsonLd } = this.extractRecipeJsonLd(html);
