@@ -699,6 +699,7 @@ ${cleanText.substring(0, 30000)}`;
 
     /**
      * Extract recipe using Serper AI extraction (fallback when Gemini fails).
+     * Uses Serper's extract API to directly scrape structured data from the URL.
      */
     private async extractWithSerper(html: string, url: string, metadata: { title: string; image: string; totalTime: string; servings?: number; difficulty: string; keywords: string[] }): Promise<ParsedRecipe | null> {
         if (!env.serperApiKey) {
@@ -709,81 +710,106 @@ ${cleanText.substring(0, 30000)}`;
         console.log(`[Recipe] Extracting with Serper: ${url}`);
         
         try {
-            // Use Serper to search and extract recipe data
-            const response = await axios.post('https://google.serper.dev/search', {
-                q: `recipe site:${new URL(url).hostname} ${metadata.title}`,
-                gl: 'il',
-                hl: 'he'
+            // Use Serper's extract API to directly scrape the URL
+            const response = await axios.post('https://scrape.serper.dev/extract', {
+                url: url,
+                schema: {
+                    title: "string",
+                    ingredients: ["string"],
+                    instructions: ["string"],
+                    cookTime: "string",
+                    prepTime: "string",
+                    servings: "string"
+                }
             }, {
                 headers: {
-                    'X-API-KEY': env.serperApiKey,
+                    'Authorization': `Bearer ${env.serperApiKey}`,
                     'Content-Type': 'application/json'
                 },
-                timeout: 10000
+                timeout: 30000
             });
 
-            // Try to find the specific URL in results
             const data = response.data as any;
-            const results = data?.organic || [];
-            const matchingResult = results.find((r: any) => r.link === url);
             
-            if (!matchingResult) {
-                console.log('[Recipe] URL not found in Serper results');
+            if (!data) {
+                console.log('[Recipe] Serper returned no data');
                 return null;
             }
 
-            // Try to extract from the snippet or use basic extraction
-            const snippet = matchingResult.snippet || '';
-            
-            // Create a basic parsed recipe from metadata
-            const recipe: ParsedRecipe = {
-                sourceUrl: url,
-                title: metadata.title,
-                image: metadata.image,
-                totalTime: metadata.totalTime,
-                servings: metadata.servings,
-                difficulty: metadata.difficulty,
-                ingredients: [],
-                steps: [],
-                originalLanguage: 'en',
-                tags: metadata.keywords
-            };
-
-            // Try to parse ingredients from HTML if available
-            const $ = cheerio.load(html);
+            // Parse ingredients from the structured response
             const ingredients: any[] = [];
             let ingredientCounter = 1;
-
-            // Look for common ingredient selectors
-            $('[class*="ingredient"], [itemprop="recipeIngredient"], .recipe-ingredients li, .ingredients li').each((_, el) => {
-                const text = $(el).text().trim();
-                if (text && text.length > 2 && text.length < 200) {
-                    const parsed = parseIngredientLine(text, ingredientCounter++);
-                    if (parsed.name) {
-                        ingredients.push(parsed);
+            
+            if (Array.isArray(data.ingredients)) {
+                for (const ing of data.ingredients) {
+                    if (typeof ing === 'string') {
+                        const parsed = parseIngredientLine(ing, ingredientCounter++);
+                        if (parsed.name) {
+                            ingredients.push(parsed);
+                        }
                     }
                 }
-            });
+            }
 
-            // Look for common step selectors
+            // Parse instructions/steps from the structured response
             const steps: any[] = [];
             let stepNum = 1;
-            $('[class*="instruction"], [itemprop="recipeInstructions"] li, .recipe-steps li, .directions li, [class*="step"]').each((_, el) => {
-                const text = $(el).text().trim();
-                if (text && text.length > 10 && text.length < 500) {
-                    steps.push({
-                        stepNumber: stepNum++,
-                        text: text,
-                        ingredientIds: []
-                    });
+            
+            if (Array.isArray(data.instructions)) {
+                for (const instruction of data.instructions) {
+                    if (typeof instruction === 'string' && instruction.length > 5) {
+                        steps.push({
+                            stepNumber: stepNum++,
+                            text: instruction,
+                            ingredientIds: []
+                        });
+                    }
                 }
-            });
+            }
+
+            // If Serper extraction didn't return enough data, fall back to HTML parsing
+            if (ingredients.length < 2 && steps.length < 1) {
+                console.log('[Recipe] Serper extract returned insufficient data, trying HTML parsing');
+                const $ = cheerio.load(html);
+                
+                // Try common ingredient selectors
+                $('[class*="ingredient"], [itemprop="recipeIngredient"], .recipe-ingredients li, .ingredients li').each((_, el) => {
+                    const text = $(el).text().trim();
+                    if (text && text.length > 2 && text.length < 200) {
+                        const parsed = parseIngredientLine(text, ingredientCounter++);
+                        if (parsed.name && !ingredients.find(i => i.name === parsed.name)) {
+                            ingredients.push(parsed);
+                        }
+                    }
+                });
+
+                // Try common step selectors
+                $('[class*="instruction"], [itemprop="recipeInstructions"] li, .recipe-steps li, .directions li, [class*="step"]').each((_, el) => {
+                    const text = $(el).text().trim();
+                    if (text && text.length > 10 && text.length < 500) {
+                        steps.push({
+                            stepNumber: stepNum++,
+                            text: text,
+                            ingredientIds: []
+                        });
+                    }
+                });
+            }
 
             if (ingredients.length >= 2 || steps.length >= 1) {
-                recipe.ingredients = ingredients;
-                recipe.steps = steps;
                 console.log(`[Recipe] Serper extracted: ${ingredients.length} ingredients, ${steps.length} steps`);
-                return recipe;
+                return {
+                    sourceUrl: url,
+                    title: data.title || metadata.title,
+                    image: metadata.image,
+                    totalTime: data.cookTime || metadata.totalTime,
+                    servings: data.servings ? parseInt(data.servings) : metadata.servings,
+                    difficulty: metadata.difficulty,
+                    ingredients,
+                    steps,
+                    originalLanguage: 'en',
+                    tags: metadata.keywords
+                };
             }
 
             console.log('[Recipe] Serper extraction insufficient');
