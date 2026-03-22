@@ -18,20 +18,20 @@ app.use(helmet({
 }));
 
 // CORS - allow all origins (including Capacitor apps)
-const corsOptions = {
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-        // Allow requests with no origin (mobile apps) or any origin
-        if (!origin || origin === 'null' || origin.startsWith('https://localhost') || origin.startsWith('capacitor://') || origin.startsWith('http://localhost')) {
-            callback(null, true);
-        } else {
-            callback(null, true); // Allow all origins for now
-        }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-};
-app.use(cors(corsOptions));
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        res.sendStatus(200);
+        return;
+    }
+    
+    next();
+});
 
 // Rate limiting - protect API keys from abuse
 const apiLimiter = rateLimit({

@@ -4,7 +4,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const client_1 = require("@prisma/client");
@@ -19,21 +18,18 @@ app.use((0, helmet_1.default)({
     contentSecurityPolicy: false, // Allow mixed content for development
 }));
 // CORS - allow all origins (including Capacitor apps)
-const corsOptions = {
-    origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps) or any origin
-        if (!origin || origin === 'null' || origin.startsWith('https://localhost') || origin.startsWith('capacitor://') || origin.startsWith('http://localhost')) {
-            callback(null, true);
-        }
-        else {
-            callback(null, true); // Allow all origins for now
-        }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-};
-app.use((0, cors_1.default)(corsOptions));
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        res.sendStatus(200);
+        return;
+    }
+    next();
+});
 // Rate limiting - protect API keys from abuse
 const apiLimiter = (0, express_rate_limit_1.default)({
     windowMs: 15 * 60 * 1000, // 15 minutes
