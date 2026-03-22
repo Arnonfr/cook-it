@@ -39,6 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RecipeParserService = void 0;
 const axios_1 = __importDefault(require("axios"));
 const cheerio = __importStar(require("cheerio"));
+const env_1 = require("../config/env");
 const mockRecipes_1 = require("../data/mockRecipes");
 const recipeTransforms_1 = require("../utils/recipeTransforms");
 const client_1 = require("@prisma/client");
@@ -710,6 +711,92 @@ ${cleanText.substring(0, 30000)}`;
         };
     }
     /**
+     * Extract recipe using Serper AI extraction (fallback when Gemini fails).
+     */
+    async extractWithSerper(html, url, metadata) {
+        if (!env_1.env.serperApiKey) {
+            console.log('[Recipe] Serper API key not configured, skipping Serper extraction');
+            return null;
+        }
+        console.log(`[Recipe] Extracting with Serper: ${url}`);
+        try {
+            // Use Serper to search and extract recipe data
+            const response = await axios_1.default.post('https://google.serper.dev/search', {
+                q: `recipe site:${new URL(url).hostname} ${metadata.title}`,
+                gl: 'il',
+                hl: 'he'
+            }, {
+                headers: {
+                    'X-API-KEY': env_1.env.serperApiKey,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000
+            });
+            // Try to find the specific URL in results
+            const data = response.data;
+            const results = data?.organic || [];
+            const matchingResult = results.find((r) => r.link === url);
+            if (!matchingResult) {
+                console.log('[Recipe] URL not found in Serper results');
+                return null;
+            }
+            // Try to extract from the snippet or use basic extraction
+            const snippet = matchingResult.snippet || '';
+            // Create a basic parsed recipe from metadata
+            const recipe = {
+                sourceUrl: url,
+                title: metadata.title,
+                image: metadata.image,
+                totalTime: metadata.totalTime,
+                servings: metadata.servings,
+                difficulty: metadata.difficulty,
+                ingredients: [],
+                steps: [],
+                originalLanguage: 'en',
+                tags: metadata.keywords
+            };
+            // Try to parse ingredients from HTML if available
+            const $ = cheerio.load(html);
+            const ingredients = [];
+            let ingredientCounter = 1;
+            // Look for common ingredient selectors
+            $('[class*="ingredient"], [itemprop="recipeIngredient"], .recipe-ingredients li, .ingredients li').each((_, el) => {
+                const text = $(el).text().trim();
+                if (text && text.length > 2 && text.length < 200) {
+                    const parsed = (0, recipeTransforms_1.parseIngredientLine)(text, ingredientCounter++);
+                    if (parsed.name) {
+                        ingredients.push(parsed);
+                    }
+                }
+            });
+            // Look for common step selectors
+            const steps = [];
+            let stepNum = 1;
+            $('[class*="instruction"], [itemprop="recipeInstructions"] li, .recipe-steps li, .directions li, [class*="step"]').each((_, el) => {
+                const text = $(el).text().trim();
+                if (text && text.length > 10 && text.length < 500) {
+                    steps.push({
+                        stepNumber: stepNum++,
+                        text: text,
+                        ingredientIds: []
+                    });
+                }
+            });
+            if (ingredients.length >= 2 || steps.length >= 1) {
+                recipe.ingredients = ingredients;
+                recipe.steps = steps;
+                console.log(`[Recipe] Serper extracted: ${ingredients.length} ingredients, ${steps.length} steps`);
+                return recipe;
+            }
+            console.log('[Recipe] Serper extraction insufficient');
+            return null;
+        }
+        catch (error) {
+            console.log(`[Recipe] Serper extraction error: ${error?.message}`);
+            return null;
+        }
+    }
+    /**
      * Build recipe from JSON-LD structured data (code-based, no AI).
      */
     buildRecipeFromJsonLd($, recipeJsonLd, url) {
@@ -856,6 +943,7 @@ ${cleanText.substring(0, 30000)}`;
             };
             // === Strategy 1: Gemini AI extraction (primary — best quality) ===
             console.log('[Recipe] Starting Strategy 1: Gemini extraction');
+            let geminiFailed = false;
             try {
                 // Clean page text for AI
                 console.log('[Recipe] Loading HTML into cheerio...');
@@ -873,8 +961,23 @@ ${cleanText.substring(0, 30000)}`;
                 }
             }
             catch (geminiError) {
-                console.log(`[Recipe] Gemini extraction failed, falling back to code: ${geminiError?.message}`);
-                console.log(`[Recipe] Gemini error full:`, JSON.stringify(geminiError, null, 2));
+                console.log(`[Recipe] Gemini extraction failed: ${geminiError?.message}`);
+                geminiFailed = true;
+            }
+            // === Strategy 1.5: Serper extraction (when Gemini fails) ===
+            if (geminiFailed && env_1.env.serperApiKey) {
+                console.log('[Recipe] Trying Strategy 1.5: Serper extraction');
+                try {
+                    const serperRecipe = await this.extractWithSerper(html, url, metadata);
+                    if (serperRecipe && serperRecipe.ingredients.length >= 2 && serperRecipe.steps.length >= 1) {
+                        console.log(`[Recipe] Serper extraction success: ${serperRecipe.ingredients.length} ingredients, ${serperRecipe.steps.length} steps`);
+                        await this.cacheRecipe(url, serperRecipe);
+                        return serperRecipe;
+                    }
+                }
+                catch (serperError) {
+                    console.log(`[Recipe] Serper extraction failed: ${serperError?.message}`);
+                }
             }
             // === Strategy 2: JSON-LD structured data (free, no AI) ===
             if (recipeJsonLd) {
