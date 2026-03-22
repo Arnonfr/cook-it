@@ -400,6 +400,48 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
           </div>
         </div>
 
+        {/* Auto Translate Settings */}
+        <div className="rounded-[24px] bg-white border border-slate-100 shadow-sm p-5">
+          <h2 className="mb-3 text-sm font-normal text-slate-700 flex items-center gap-2">
+            <Globe size={16} className="text-[#2f6d63]" />
+            תרגום אוטומטי
+          </h2>
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={localStorage.getItem('auto_translate') === 'true'}
+                onChange={(e) => {
+                  localStorage.setItem('auto_translate', e.target.checked.toString());
+                  // Force re-render
+                  window.location.reload();
+                }}
+                className="w-5 h-5 rounded border-slate-300 text-[#2f6d63] focus:ring-[#2f6d63]"
+              />
+              <span className="text-sm text-slate-700">תרגם מתכונים אוטומטית</span>
+            </label>
+            
+            {localStorage.getItem('auto_translate') === 'true' && (
+              <div className="pt-2">
+                <label className="block text-xs text-slate-500 mb-2">שפת יעד:</label>
+                <select
+                  value={localStorage.getItem('target_language') || 'he'}
+                  onChange={(e) => {
+                    localStorage.setItem('target_language', e.target.value);
+                  }}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white"
+                >
+                  <option value="he">עברית</option>
+                  <option value="en">English</option>
+                  <option value="es">Español</option>
+                  <option value="fr">Français</option>
+                  <option value="de">Deutsch</option>
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* App info */}
         <div className="rounded-[24px] bg-white border border-slate-100 shadow-sm p-5">
           <h2 className="mb-3 text-sm font-normal text-slate-700">על האפליקציה</h2>
@@ -1043,31 +1085,34 @@ export const App = () => {
           </div>
         </section>
 
-        {/* ─── Quick Category Chips ─── */}
-        <section className="mt-7">
-          <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
-            {quickCategories.map((category) => (
-              <button
-                key={category.label}
-                type="button"
-                onClick={() => {
-                  setQuery(category.label);
-                  void handleSearch(category.label);
-                }}
-                className="min-w-[88px] shrink-0"
-              >
-                <div className="flex h-[92px] w-[88px] items-center justify-center rounded-[16px] border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
-                  <div className="text-[2.2rem]">{category.emoji}</div>
-                </div>
-                <div className="mt-3 text-center text-sm font-normal text-slate-700">{category.label}</div>
-              </button>
-            ))}
-          </div>
-        </section>
-
         {/* ─── HOME VIEW ─── */}
         {view === 'home' && (
-          <section className="mt-9">
+          <>
+            {/* ─── Quick Category Chips - Only on Home ─── */}
+            <section className="mt-7">
+              <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
+                {quickCategories.map((category) => (
+                  <button
+                    key={category.label}
+                    type="button"
+                    onClick={() => {
+                      // Search in local library only
+                      setQuery(category.label);
+                      setView('search');
+                      // TODO: Implement local library search
+                    }}
+                    className="min-w-[88px] shrink-0"
+                  >
+                    <div className="flex h-[92px] w-[88px] items-center justify-center rounded-[16px] border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+                      <div className="text-[2.2rem]">{category.emoji}</div>
+                    </div>
+                    <div className="mt-3 text-center text-sm font-normal text-slate-700">{category.label}</div>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="mt-9">
             {/* Community Horizontal Scroll */}
             <div className="flex items-center justify-between">
               <h2 className="text-base font-normal leading-none text-slate-700">מתכונים אחרונים מהקהילה</h2>
@@ -1134,6 +1179,7 @@ export const App = () => {
               </div>
             )}
           </section>
+          </>
         )}
 
         {/* ─── SEARCH VIEW ─── */}
@@ -1219,32 +1265,30 @@ export const App = () => {
         {/* ─── Bottom Navigation (flipped: Home leftmost, Search middle, Profile rightmost) ─── */}
         <nav className="fixed bottom-5 left-1/2 z-40 flex w-[calc(100%-32px)] max-w-[398px] -translate-x-1/2 items-center justify-around rounded-[24px] border border-white/70 bg-white/80 px-6 py-3 shadow-[0_18px_40px_rgba(15,23,42,0.12)] backdrop-blur-xl">
           <button
-            className={`flex flex-col items-center gap-1.5 ${view === 'home' ? 'text-[#2f6d63]' : 'text-slate-950'}`}
+            className={`flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors ${view === 'home' ? 'text-[#2f6d63] bg-[#e6fcf6]' : 'text-slate-600 hover:bg-slate-100'}`}
             onClick={() => {
               if (view === 'home') window.scrollTo({ top: 0, behavior: 'smooth' });
               else { setView('home'); void loadCommunity(); void loadLibrary(); }
             }}
+            title="בית"
           >
-            <div className={`flex h-10 w-10 items-center justify-center rounded-[14px] ${view === 'home' ? 'bg-[#e6fcf6]' : ''}`}>
-              <Home size={22} />
-            </div>
-            <span className="text-[10px] font-bold">בית</span>
+            <Home size={24} />
           </button>
           <button
-            className={`flex flex-col items-center gap-1.5 ${view === 'search' ? 'text-[#2f6d63]' : 'text-slate-950'}`}
+            className={`flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors ${view === 'search' ? 'text-[#2f6d63] bg-[#e6fcf6]' : 'text-slate-600 hover:bg-slate-100'}`}
             onClick={() => {
               if (view !== 'search') setView('search');
             }}
+            title="חיפוש"
           >
-            <Search size={22} />
-            <span className="text-[10px] font-bold">חיפוש</span>
+            <Search size={24} />
           </button>
           <button
-            className="flex flex-col items-center gap-1.5 text-slate-950"
+            className={`flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors ${view === 'profile' ? 'text-[#2f6d63] bg-[#e6fcf6]' : 'text-slate-600 hover:bg-slate-100'}`}
             onClick={() => { setPreviousView(view); setView('profile'); }}
+            title="פרופיל"
           >
-            <User size={22} />
-            <span className="text-[10px] font-bold">פרופיל</span>
+            <User size={24} />
           </button>
         </nav>
 
