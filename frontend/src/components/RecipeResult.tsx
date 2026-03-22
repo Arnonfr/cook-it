@@ -7,7 +7,6 @@ import {
     ChevronDown,
     Clock3,
     ExternalLink,
-    Flame,
     Globe,
     Maximize2,
     Minimize2,
@@ -598,7 +597,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
     const [basePanSize, setBasePanSize] = useState('24');
     const [targetPanShape, setTargetPanShape] = useState<PanShape>('round');
     const [targetPanSize, setTargetPanSize] = useState('24');
-    const [showOriginal, setShowOriginal] = useState(false);
+    const [showOriginal] = useState(false);
 
     const handlePrint = () => {
         window.print();
@@ -622,7 +621,6 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
     };
 
     // Language toggle: swap between translated and original content
-    const hasTranslation = !!(recipe.originalRecipe && recipe.originalLanguage && recipe.originalLanguage !== 'he');
     const displayTitle = showOriginal && recipe.originalRecipe ? recipe.originalRecipe.title : recipe.title;
     const displayIngredients = showOriginal && recipe.originalRecipe ? recipe.originalRecipe.ingredients : recipe.ingredients;
     const displaySteps = showOriginal && recipe.originalRecipe ? recipe.originalRecipe.steps : recipe.steps;
