@@ -181,8 +181,10 @@ public class RecipeOverlayService extends Service {
     }
 
     private void extractRecipe() {
-        // Use emulator IP if in emulator, otherwise try localhost
-        String apiUrl = "http://10.0.2.2:3001/api/parse?url=" + Uri.encode(sharedUrl);
+        // Production API URL - update this to your deployed backend URL
+        // For local development with emulator: http://10.0.2.2:3001/api/parse?url=
+        // For production: https://your-api.onrender.com/api/parse?url=
+        String apiUrl = "https://cookit-api.onrender.com/api/parse?url=" + Uri.encode(sharedUrl);
         
         Request request = new Request.Builder()
                 .url(apiUrl)
