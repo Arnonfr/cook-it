@@ -781,46 +781,30 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
 
                 <div className="absolute bottom-0 w-full p-4 pb-6 md:p-8 md:pb-10">
                     <div className="mx-auto max-w-[1240px]">
-                        <div className="flex flex-wrap gap-2 mb-3">
-                            {recipe.tags?.slice(0, 3).map(tag => (
-                                <span key={tag} className="rounded-full bg-white/20 px-3 py-1 text-[11px] md:text-xs font-bold text-white backdrop-blur-md border border-white/10 shadow-sm">
-                                    {tag}
-                                </span>
-                            ))}
-                        </div>
-                        <h1 className="text-base lg:text-lg font-normal leading-[1.15] text-white mb-2 drop-shadow-md max-w-[800px]">
+                        {/* Title only */}
+                        <h1 className="text-xl lg:text-2xl font-bold leading-tight text-white mb-3 drop-shadow-lg max-w-[800px]">
                             {displayTitle}
                         </h1>
-                        {hasTranslation && (
-                            <button
-                                type="button"
-                                onClick={() => setShowOriginal(!showOriginal)}
-                                className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-[11px] md:text-xs font-bold text-white backdrop-blur-md border border-white/10 mb-3 transition-colors hover:bg-white/30"
-                            >
-                                <Globe size={13} />
-                                {showOriginal ? 'הצג בעברית' : 'הצג במקור'}
-                            </button>
-                        )}
-
-                        <div className="flex flex-wrap items-center gap-x-2 md:gap-x-3 gap-y-2 text-[12px] md:text-sm font-semibold text-white/90 drop-shadow-md">
+                        
+                        {/* Compact info row */}
+                        <div className="flex items-center gap-4 text-[13px] font-medium text-white/90">
                             {recipe.totalTime && (
-                                <div className="flex items-center gap-2 bg-black/40 px-3.5 py-2 rounded-[14px] backdrop-blur-md border border-white/10">
-                                    <Clock3 size={15} className="text-white/80" /> {formatDuration(recipe.totalTime)}
-                                </div>
+                                <span className="flex items-center gap-1.5">
+                                    <Clock3 size={14} /> {formatDuration(recipe.totalTime)}
+                                </span>
                             )}
                             {recipe.servings && (
-                                <div className="flex items-center gap-2 bg-black/40 px-3.5 py-2 rounded-[14px] backdrop-blur-md border border-white/10">
-                                    <Users size={15} className="text-white/80" /> {recipe.servings} מנות
-                                </div>
-                            )}
-                            {recipe.difficulty && (
-                                <div className="flex items-center gap-2 bg-black/40 px-3.5 py-2 rounded-[14px] backdrop-blur-md border border-white/10">
-                                    <Flame size={15} className="text-white/80" /> {recipe.difficulty}
-                                </div>
+                                <span className="flex items-center gap-1.5">
+                                    <Users size={14} /> {recipe.servings} מנות
+                                </span>
                             )}
                             {recipe.sourceName && (
-                                <button type="button" onClick={() => setIsSourceDrawerOpen(true)} className="flex items-center gap-2 bg-white/10 px-3.5 py-2 rounded-[14px] backdrop-blur-md transition-colors hover:bg-white/20 border border-white/20 text-white">
-                                    <Globe size={15} className="text-white/90" /> <span dir="ltr" className="tracking-wide">{recipe.sourceName}</span>
+                                <button 
+                                    type="button" 
+                                    onClick={() => setIsSourceDrawerOpen(true)} 
+                                    className="flex items-center gap-1.5 underline underline-offset-2 hover:text-white transition-colors"
+                                >
+                                    <Globe size={14} /> {recipe.sourceName}
                                 </button>
                             )}
                         </div>
