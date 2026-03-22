@@ -639,14 +639,21 @@ export class RecipeParserService {
 ${cleanText.substring(0, 30000)}`;
 
         console.log(`[Recipe] Extracting with Gemini 3 Flash: ${url}`);
-        const result = await model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: schema,
-                temperature: 0.1,
-            }
-        });
+        let result;
+        try {
+            result = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: schema,
+                    temperature: 0.1,
+                }
+            });
+        } catch (genError: any) {
+            console.log(`[Recipe] Gemini generateContent error: ${genError?.message}`);
+            console.log(`[Recipe] Gemini error details:`, JSON.stringify(genError, null, 2));
+            throw genError;
+        }
 
         const responseText = result.response.text();
         if (!responseText) return null;
