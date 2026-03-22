@@ -17,12 +17,19 @@ app.use(helmet({
     contentSecurityPolicy: false, // Allow mixed content for development
 }));
 
-// CORS - restrict to your app in production
+// CORS - allow all origins (including Capacitor apps)
 const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-        ? ['https://cookit-api.onrender.com', /capacitor:\/\//] 
-        : true,
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        // Allow requests with no origin (mobile apps) or any origin
+        if (!origin || origin === 'null' || origin.startsWith('https://localhost') || origin.startsWith('capacitor://') || origin.startsWith('http://localhost')) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Allow all origins for now
+        }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
 };
 app.use(cors(corsOptions));
 
