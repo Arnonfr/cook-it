@@ -860,7 +860,8 @@ ${cleanText.substring(0, 30000)}`;
                 }
             }
             catch (geminiError) {
-                console.log(`[Recipe] Gemini extraction failed, falling back to code: ${geminiError?.message?.substring(0, 80)}`);
+                console.log(`[Recipe] Gemini extraction failed, falling back to code: ${geminiError?.message}`);
+                console.log(`[Recipe] Gemini error full:`, JSON.stringify(geminiError, null, 2));
             }
             // === Strategy 2: JSON-LD structured data (free, no AI) ===
             if (recipeJsonLd) {
