@@ -9,6 +9,9 @@ const app = express();
 const prisma = new PrismaClient();
 const port = env.port;
 
+// Trust proxy (required for Render and express-rate-limit)
+app.set('trust proxy', 1);
+
 // Security headers
 app.use(helmet({
     contentSecurityPolicy: false, // Allow mixed content for development
