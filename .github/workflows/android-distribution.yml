@@ -38,24 +38,16 @@ jobs:
       - name: Build Frontend
         working-directory: ./frontend
         run: npm run build
+        env:
+          VITE_API_BASE_URL: https://cook-it-29ua.onrender.com/api
 
       - name: Sync Capacitor
         working-directory: ./frontend
         run: npx cap sync android
 
-      - name: Setup Backend Environment
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
-        run: |
-          cd backend
-          echo "GEMINI_API_KEY=$GEMINI_API_KEY" > .env
-          echo "SERPER_API_KEY=$SERPER_API_KEY" >> .env
-          echo "PORT=3001" >> .env
-
       - name: Run Unit Tests
         working-directory: ./frontend/android
-        run: ./gradlew testDebugUnitTest --continue || echo "Tests completed with issues"
+        run: ./gradlew testDebugUnitTest --continue || true
 
       - name: Build Debug APK
         working-directory: ./frontend/android
@@ -63,7 +55,7 @@ jobs:
 
       - name: Verify APK
         run: |
-          ls -la frontend/android/app/build/outputs/apk/debug/
+          ls -lh frontend/android/app/build/outputs/apk/debug/
           file frontend/android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK Artifact
@@ -72,41 +64,29 @@ jobs:
           name: app-debug
           path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
 
-      # Firebase Distribution - Try multiple methods
+      # Firebase Distribution
+      - name: Setup Firebase CLI
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        run: npm install -g firebase-tools
+
       - name: Distribute to Firebase
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          echo "🚀 Starting Firebase Distribution..."
-          
-          # Install Firebase CLI
-          npm install -g firebase-tools
-          
-          # Method 1: Try using FIREBASE_TOKEN (legacy but simpler)
-          if [ -n "$FIREBASE_TOKEN" ]; then
-            echo "Using FIREBASE_TOKEN method..."
-            firebase appdistribution:distribute \
-              frontend/android/app/build/outputs/apk/debug/app-debug.apk \
-              --app "1:629153402724:android:fb933cd078c975a42c3471" \
-              --groups "testers" \
-              --release-notes "CookIt Build ${{ github.run_number }} - $(date)"
-          # Method 2: Try using Service Account JSON file
-          elif [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
-            echo "Using Service Account method..."
-            echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/firebase-service-account.json
-            export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-service-account.json
-            firebase appdistribution:distribute \
-              frontend/android/app/build/outputs/apk/debug/app-debug.apk \
-              --app "1:629153402724:android:fb933cd078c975a42c3471" \
-              --groups "testers" \
-              --release-notes "CookIt Build ${{ github.run_number }}"
-          else
-            echo "⚠️ No Firebase credentials found. Skipping distribution."
-            echo "Please set either FIREBASE_TOKEN or FIREBASE_SERVICE_ACCOUNT in GitHub Secrets."
+          if [ -z "$FIREBASE_TOKEN" ]; then
+            echo "⚠️ FIREBASE_TOKEN not set. Skipping Firebase distribution."
+            echo "To enable Firebase distribution, add FIREBASE_TOKEN to GitHub Secrets."
+            echo "Get token by running: firebase login:ci"
             exit 0
           fi
+          
+          echo "🚀 Distributing to Firebase..."
+          firebase appdistribution:distribute \
+            frontend/android/app/build/outputs/apk/debug/app-debug.apk \
+            --app "1:629153402724:android:fb933cd078c975a42c3471" \
+            --groups "testers" \
+            --release-notes "CookIt Build ${{ github.run_number }} - $(date +%Y-%m-%d)"
 
   build-release:
     runs-on: ubuntu-latest
@@ -139,6 +119,8 @@ jobs:
       - name: Build Frontend
         working-directory: ./frontend
         run: npm run build
+        env:
+          VITE_API_BASE_URL: https://cook-it-29ua.onrender.com/api
 
       - name: Sync Capacitor
         working-directory: ./frontend
@@ -164,28 +146,20 @@ jobs:
           name: app-release-signed
           path: ${{ steps.sign_app.outputs.signedReleaseFile }}
 
+      - name: Setup Firebase CLI
+        run: npm install -g firebase-tools
+
       - name: Distribute Release to Firebase
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          npm install -g firebase-tools
-          
-          if [ -n "$FIREBASE_TOKEN" ]; then
-            firebase appdistribution:distribute \
-              ${{ steps.sign_app.outputs.signedReleaseFile }} \
-              --app "1:629153402724:android:fb933cd078c975a42c3471" \
-              --groups "testers" \
-              --release-notes "🎉 CookIt Release ${{ github.ref_name }}"
-          elif [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
-            echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/firebase-service-account.json
-            export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-service-account.json
-            firebase appdistribution:distribute \
-              ${{ steps.sign_app.outputs.signedReleaseFile }} \
-              --app "1:629153402724:android:fb933cd078c975a42c3471" \
-              --groups "testers" \
-              --release-notes "🎉 CookIt Release ${{ github.ref_name }}"
-          else
-            echo "⚠️ No Firebase credentials found."
+          if [ -z "$FIREBASE_TOKEN" ]; then
+            echo "⚠️ FIREBASE_TOKEN not set. Skipping Firebase distribution."
             exit 0
           fi
+          
+          firebase appdistribution:distribute \
+            ${{ steps.sign_app.outputs.signedReleaseFile }} \
+            --app "1:629153402724:android:fb933cd078c975a42c3471" \
+            --groups "testers" \
+            --release-notes "🎉 CookIt Release ${{ github.ref_name }}"
