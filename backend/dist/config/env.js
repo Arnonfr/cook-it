@@ -18,6 +18,7 @@ exports.env = {
     databaseUrl: process.env.DATABASE_URL || 'file:./dev.db',
     googleApiKey: process.env.GOOGLE_API_KEY?.trim() || 'MOCK_FOR_NOW',
     googleCx: process.env.GOOGLE_CX?.trim() || 'MOCK_FOR_NOW',
-    serperApiKey: process.env.SERPER_API_KEY?.trim() || '',
-    geminiApiKey: process.env.GEMINI_API_KEY?.trim() || '',
+    // API Keys - will be moved to environment variables in production
+    serperApiKey: process.env.SERPER_API_KEY?.trim() || '12628dcd31fcfb626d282692bf4cfa2eeea87b77',
+    geminiApiKey: process.env.GEMINI_API_KEY?.trim() || 'AIzaSyDjxlB1jsetqGFHQSFXLW_7s_L6fffPQF8',
 };

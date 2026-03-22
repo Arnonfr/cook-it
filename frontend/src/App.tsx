@@ -404,8 +404,16 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
         <div className="rounded-[24px] bg-white border border-slate-100 shadow-sm p-5">
           <h2 className="mb-3 text-sm font-normal text-slate-700">על האפליקציה</h2>
           <div className="space-y-2 text-[13px] text-slate-500">
-            <div className="flex justify-between"><span>גרסה</span><span className="font-bold text-slate-700">1.0.0</span></div>
-            <div className="flex justify-between"><span>שפה</span><span className="font-bold text-slate-700">עברית</span></div>
+            <div className="flex justify-between"><span>גרסה</span><span className="font-bold text-[#2f6d63]">1.0.3</span></div>
+            <div className="flex justify-between"><span>תאריך</span><span className="font-bold text-slate-700">2025-03-22</span></div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-slate-100">
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              שיפורים בגרסה זו:<br/>
+              • שיפור אבטחה והגנת API<br/>
+              • שיפור חילוץ מתכונים<br/>
+              • תיקוני באגים ושיפורי ביצועים
+            </p>
           </div>
         </div>
       </div>
