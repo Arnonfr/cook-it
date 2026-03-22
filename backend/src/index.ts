@@ -59,8 +59,11 @@ app.use((req, res, next) => {
 import recipeRoutes from './routes/recipe';
 import settingsRoutes from './routes/settings';
 
+console.log('[Routes] Loading recipe routes...');
 app.use('/api', recipeRoutes);
+console.log('[Routes] Loading settings routes...');
 app.use('/api/settings', settingsRoutes);
+console.log('[Routes] All routes loaded successfully');
 
 const server = app.listen(port, () => {
     console.log(`Cookit Backend running on port ${port}`);
