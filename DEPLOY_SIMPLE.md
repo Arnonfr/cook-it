@@ -1,35 +1,49 @@
-# הוראות העלאה לאוויר - CookIt
+# הוראות העלאה לאוויר — CookIt
 
-## שלב 1: קבלת API Keys
+## שלב 1: Neon (מסד נתונים חינמי)
 
-### Serper (לחיפוש Google)
+1. כנס ל: https://neon.tech
+2. התחבר עם GitHub
+3. לחץ **New Project** → שם: `cookit` → Region: EU Frankfurt → Create
+4. בדף הפרויקט, לחץ **Connection Details**
+5. בחר **Connection string** → Pooled connection → העתק את ה-URL
+   - זה ה-`DATABASE_URL` (יש בו `pgbouncer=true`)
+6. עבור ל-**Direct connection** → העתק
+   - זה ה-`DIRECT_URL`
+
+## שלב 2: API Keys
+
+### Serper (חיפוש Google)
 1. כנס ל: https://serper.dev
-2. התחבר עם Gmail
-3. לך ל-API Key
-4. העתק את המפתח
+2. התחבר עם Gmail → לך ל-API Key → העתק
 
-### Gemini (לחילוץ מתכונים)
+### Gemini (חילוץ מתכונים)
 1. כנס ל: https://aistudio.google.com/app/apikey
-2. צור API Key חדש
-3. העתק את המפתח
+2. Create API Key → העתק
 
-## שלב 2: העלאה ל-Render
+## שלב 3: עדכון `.env.local` מקומי
 
-### 2.1 צור חשבון
-1. כנס ל: https://render.com
-2. לחץ "Get Started for Free"
-3. התחבר עם GitHub
+ב-`backend/.env.local`:
+```
+NODE_ENV=development
+PORT=3001
+DATABASE_URL="postgresql://[user]:[password]@[host]/cookit?pgbouncer=true&sslmode=require"
+DIRECT_URL="postgresql://[user]:[password]@[host]/cookit?sslmode=require"
+GEMINI_API_KEY=AIza...
+SERPER_API_KEY=...
+```
 
-### 2.2 צור Database
-1. Dashboard → New + → PostgreSQL
-2. שם: `cookit-db`
-3. Plan: Free
-4. לחץ Create
+הרץ מיגרציה מקומית:
+```bash
+cd backend && npx prisma migrate deploy
+```
 
-### 2.3 צור Web Service
-1. Dashboard → New + → Web Service
+## שלב 4: העלאה ל-Render
+
+### 4.1 צור Web Service
+1. כנס ל: https://render.com → Dashboard → New + → Web Service
 2. בחר את ה-repository: `Arnonfr/cook-it`
-3. Settings:
+3. הגדרות:
    - **Name**: `cookit-api`
    - **Region**: Frankfurt
    - **Branch**: main
@@ -37,30 +51,21 @@
    - **Start Command**: `cd backend && node dist/index.js`
    - **Plan**: Free
 
-### 2.4 הוסף Environment Variables
-לך ל: Web Service → Environment → Add Environment Variable
-
-הוסף 2 משתנים:
+### 4.2 הוסף Environment Variables
+Web Service → Environment → Add Environment Variable
 
 | Key | Value |
 |-----|-------|
-| `GEMINI_API_KEY` | המפתח שקיבלת מ-Google AI Studio |
-| `SERPER_API_KEY` | המפתח שקיבלת מ-Serper |
+| `DATABASE_URL` | Neon pooled URL |
+| `DIRECT_URL` | Neon direct URL |
+| `GEMINI_API_KEY` | מ-Google AI Studio |
+| `SERPER_API_KEY` | מ-Serper |
 
-### 2.5 Deploy
+### 4.3 Deploy
 לחץ: Manual Deploy → Deploy Latest Commit
 
-חכה 3-4 דקות עד שיסיים.
-
-## שלב 3: בדיקה
-
-פתח דפדפן:
+## שלב 5: בדיקה
 ```
-https://cookit-api.onrender.com/api/health
+https://cook-it-29ua.onrender.com/health
 ```
-
 אמור להחזיר: `{"status":"ok"}`
-
-## סיום! 🎉
-
-האפליקציה שלך באוויר עם מפתחות מאובטחים!

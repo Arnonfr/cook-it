@@ -1,13 +1,13 @@
 # CookIt Backend Deployment Configuration
-# 
+#
 # ⚠️ חשוב: אל תכניס API Keys לקובץ זה!
 # הוסף אותם ב-Render Dashboard → Environment Variables
 #
 # המפתחות שצריך להוסיף ידנית:
-# - GEMINI_API_KEY: המפתח מ-Google AI Studio
-# - SERPER_API_KEY: המפתח מ-Serper.dev
-#
-# הוראות מלאות בקובץ: DEPLOY_SIMPLE.md
+# - GEMINI_API_KEY
+# - SERPER_API_KEY
+# - DATABASE_URL   (מ-Neon — pooled connection)
+# - DIRECT_URL     (מ-Neon — direct connection)
 
 services:
   - type: web
@@ -18,19 +18,12 @@ services:
     startCommand: cd backend && node dist/index.js
     healthCheckPath: /health
     envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: cookit-db
-          property: connectionString
-      # ⚠️ הוסף ב-Dashboard ידנית: GEMINI_API_KEY
-      # ⚠️ הוסף ב-Dashboard ידנית: SERPER_API_KEY
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
-
-databases:
-  - name: cookit-db
-    databaseName: cookit
-    user: cookit
-    plan: free
+      # ⚠️ הוסף ב-Dashboard ידנית:
+      # DATABASE_URL  — Neon pooled URL (postgres://...?pgbouncer=true&sslmode=require)
+      # DIRECT_URL    — Neon direct URL  (postgres://...?sslmode=require)
+      # GEMINI_API_KEY
+      # SERPER_API_KEY

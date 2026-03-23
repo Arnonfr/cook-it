@@ -151,7 +151,7 @@ const ApiKeyField = ({
   );
 };
 
-const ProfileView = ({ onBack }: { onBack: () => void }) => {
+const ProfileView = ({ onBack, keepScreenOn, onKeepScreenOnChange }: { onBack: () => void; keepScreenOn: boolean; onKeepScreenOnChange: (v: boolean) => void }) => {
   const [restricted, setRestricted] = useState<string[]>(loadDietaryPrefs);
   const [name, setName] = useState(loadDisplayName);
   const [editingName, setEditingName] = useState(false);
@@ -398,6 +398,29 @@ const ProfileView = ({ onBack }: { onBack: () => void }) => {
               );
             })}
           </div>
+        </div>
+
+        {/* Screen & Display */}
+        <div className="rounded-[24px] bg-white border border-slate-100 shadow-sm p-5">
+          <h2 className="mb-3 text-sm font-normal text-slate-700 flex items-center gap-2">
+            <span>☀️</span>תצוגה
+          </h2>
+          <label className="flex items-center justify-between gap-3 cursor-pointer">
+            <div>
+              <div className="text-sm text-slate-700">שמור מסך דלוק</div>
+              <div className="text-xs text-slate-400 mt-0.5">מונע כיבוי מסך בזמן בישול</div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={keepScreenOn}
+              onClick={() => onKeepScreenOnChange(!keepScreenOn)}
+              className={'relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ' + (keepScreenOn ? 'bg-[#2f6d63]' : 'bg-slate-200')}
+            dir="ltr"
+            >
+              <span className={'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ' + (keepScreenOn ? 'translate-x-5' : 'translate-x-0')} />
+            </button>
+          </label>
         </div>
 
         {/* Auto Translate Settings */}
@@ -777,6 +800,8 @@ export const App = () => {
   const [webResults, setWebResults] = useState<SearchResult[]>([]);
   const [showAllWeb, setShowAllWeb] = useState(false);
 
+  const [keepScreenOn, setKeepScreenOn] = useState(() => localStorage.getItem('keep_screen_on') !== 'false');
+
   // Share toast state
   const [shareToast, setShareToast] = useState<{
     show: boolean;
@@ -861,33 +886,28 @@ export const App = () => {
     };
     void setupAppEvents();
 
-    // Keep screen on logic
-    if ('wakeLock' in navigator) {
-      let wakeLock: any = null;
-      const requestWakeLock = async () => {
-        try {
-          wakeLock = await (navigator as any).wakeLock.request('screen');
-          console.log('Wake Lock is active');
-        } catch (err: any) {
-          console.error(`${err.name}, ${err.message}`);
-        }
-      };
-
-      requestWakeLock();
-
-      const handleVisibilityChange = async () => {
-        if (wakeLock !== null && document.visibilityState === 'visible') {
-          await requestWakeLock();
-        }
-      };
-
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      return () => {
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        if (wakeLock) wakeLock.release();
-      };
-    }
   }, []);
+
+  useEffect(() => {
+    if (!keepScreenOn || !('wakeLock' in navigator)) return;
+    let wakeLock: any = null;
+    const requestWakeLock = async () => {
+      try {
+        wakeLock = await (navigator as any).wakeLock.request('screen');
+      } catch {
+        // silently ignore — not supported or page not visible
+      }
+    };
+    void requestWakeLock();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void requestWakeLock();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (wakeLock) wakeLock.release().catch(() => {});
+    };
+  }, [keepScreenOn]);
 
   const loadLibrary = async () => {
     try {
@@ -1258,7 +1278,11 @@ export const App = () => {
         {/* ─── PROFILE VIEW ─── */}
         {view === 'profile' && (
           <section className="mt-9">
-            <ProfileView onBack={() => setView('home')} />
+            <ProfileView
+                onBack={() => setView('home')}
+                keepScreenOn={keepScreenOn}
+                onKeepScreenOnChange={(v) => { setKeepScreenOn(v); localStorage.setItem('keep_screen_on', v.toString()); }}
+              />
           </section>
         )}
 

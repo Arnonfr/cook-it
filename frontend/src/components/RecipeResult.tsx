@@ -386,6 +386,7 @@ const StepTimer = ({ minutes }: { minutes: number }) => {
     const totalSeconds = minutes * 60;
     const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
     const [running, setRunning] = useState(false);
+    const [expanded, setExpanded] = useState(false);
 
     useEffect(() => {
         if (!running) return;
@@ -419,28 +420,37 @@ const StepTimer = ({ minutes }: { minutes: number }) => {
 
     const minutesLabel = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
     const secondsLabel = String(secondsLeft % 60).padStart(2, '0');
+    const isActive = running || secondsLeft < totalSeconds;
+    const isDone = secondsLeft === 0;
+
+    if (!expanded) {
+        return (
+            <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                className={'mt-3 flex items-center gap-2 rounded-[12px] border px-3 py-1.5 text-xs font-semibold transition-colors ' + (isActive ? 'border-[#236eff]/30 bg-[#236eff]/10 text-[#236eff]' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-[#236eff]/30 hover:text-[#236eff]')}
+            >
+                <AlarmClock size={13} />
+                {running ? `${minutesLabel}:${secondsLabel}` : `${minutes} דק׳`}
+                {isDone && ' ✓'}
+            </button>
+        );
+    }
 
     return (
-        <div className="mt-4 rounded-[16px] border border-[#236eff]/14 bg-[#236eff]/[0.06] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#236eff]">
-                        <AlarmClock size={14} />
-                        טיימר לשלב
-                    </div>
-                    <div className="mt-2 text-lg font-medium text-slate-900">
-                        {minutesLabel}:{secondsLabel}
-                    </div>
-                    <div className="mt-1 text-sm text-slate-500">זוהה זמן של {minutes} דקות בטקסט השלב</div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => setRunning((value) => !value)} className={BUTTON_SECONDARY}>
-                        {running ? <Pause size={16} /> : <Play size={16} />}
+        <div className="mt-3 rounded-[14px] border border-[#236eff]/14 bg-[#236eff]/[0.06] p-3">
+            <div className="flex items-center justify-between gap-2">
+                <button type="button" onClick={() => setExpanded(false)} className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#236eff]">
+                    <AlarmClock size={13} />טיימר לשלב
+                </button>
+                <div className="text-base font-mono font-semibold text-slate-900">{minutesLabel}:{secondsLabel}</div>
+                <div className="flex gap-1.5">
+                    <button type="button" onClick={() => setRunning((v) => !v)} className={BUTTON_SECONDARY}>
+                        {running ? <Pause size={14} /> : <Play size={14} />}
                         {running ? 'עצור' : 'הפעל'}
                     </button>
                     <button type="button" onClick={() => { setSecondsLeft(totalSeconds); setRunning(false); }} className={BUTTON_TERTIARY}>
-                        <RotateCcw size={16} />
-                        איפוס
+                        <RotateCcw size={14} />
                     </button>
                 </div>
             </div>
@@ -1042,7 +1052,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                     <section className="relative">
                         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between px-2">
                             <div>
-                                <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#2f6d63] mb-1">Preparation Flow</div>
+                                <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#2f6d63] mb-1">זרימת הכנה</div>
                                 <h2 className="text-base font-medium text-slate-900">אופן ההכנה</h2>
                             </div>
                         </div>

@@ -1,5 +1,13 @@
 # Cookit — הנחיות למפתח (CLAUDE.md)
 
+## פורמט תגובות בעברית — RTL חובה
+
+**בכל תגובה בעברית, יש להוסיף את תו ה-Unicode ‏(U+200F RIGHT-TO-LEFT MARK) בתחילת כל פסקה.**
+זה גורם ל-Claude.app (Electron/Chromium) ולטרמינל לפרש את הטקסט כ-RTL, כך שמילים באנגלית באמצע משפט לא ישברו את הרצף הויזואלי.
+התו נראה כך (בלתי נראה אך קיים): ‏
+
+---
+
 אפליקציית חיפוש וניהול מתכונים בעברית. Full-stack: React frontend + Express backend, SQLite דרך Prisma.
 
 ---
