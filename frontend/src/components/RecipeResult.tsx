@@ -756,13 +756,21 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent" />
 
-                <div className="absolute top-4 right-4 z-10 flex gap-2 md:top-8 md:right-8">
+                <div className="absolute top-6 left-4 z-10 flex flex-col gap-2 md:top-10 md:left-6">
                     <button
                         onClick={onBack}
                         className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-colors hover:bg-white/30 border border-white/20 md:h-12 md:w-12 shadow-sm"
                     >
                         <ArrowRight size={20} />
                     </button>
+                    {onSave && (
+                        <button
+                            onClick={() => onSave(recipe)}
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#2f6d63] transition-colors hover:bg-slate-50 md:h-12 md:w-12 shadow-sm"
+                        >
+                            <Bookmark size={20} />
+                        </button>
+                    )}
                     <button
                         onClick={handleShare}
                         title="שיתוף מתכון"
@@ -777,14 +785,6 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                     >
                         <Printer size={20} />
                     </button>
-                    {onSave && (
-                        <button
-                            onClick={() => onSave(recipe)}
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#2f6d63] transition-colors hover:bg-slate-50 md:h-12 md:w-12 shadow-sm"
-                        >
-                            <Bookmark size={20} />
-                        </button>
-                    )}
                 </div>
 
                 <div className="absolute bottom-0 w-full p-4 pb-6 md:p-8 md:pb-10">

@@ -429,7 +429,7 @@ router.get('/library/:userId', async (req, res) => {
         const { userId } = req.params;
         // Clean up orphaned SavedRecipes (from raw SQL deletions that bypass cascade)
         await prisma.$executeRawUnsafe(
-            `DELETE FROM SavedRecipe WHERE recipeId NOT IN (SELECT id FROM Recipe)`
+            `DELETE FROM "SavedRecipe" WHERE "recipeId" NOT IN (SELECT id FROM "Recipe")`
         );
 
         const saved = await prisma.savedRecipe.findMany({

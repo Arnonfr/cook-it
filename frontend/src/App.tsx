@@ -2,6 +2,7 @@ import { useEffect, useState, lazy, Suspense } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import {
   ArrowLeft,
+  Bookmark,
   BookOpen,
   ChevronDown,
   ChevronUp,
@@ -689,11 +690,12 @@ const RecipeListRow = ({
   );
 
   return (
-    <div className="space-y-2">
-      <article
-        onClick={onOpen}
-        className="flex gap-3 cursor-pointer hover:border-[#2f6d63]/30 hover:shadow-md transition-all rounded-[18px] border border-slate-200 bg-white p-3 shadow-[0_8px_20px_rgba(15,23,42,0.05)]"
-      >
+    <div
+      className="rounded-[18px] border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.05)] overflow-hidden cursor-pointer hover:border-[#2f6d63]/30 hover:shadow-md transition-all"
+      onClick={onOpen}
+    >
+      {/* Main card row */}
+      <div className="flex gap-3 p-3">
         <img
           src={recipe.image || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80'}
           alt={recipe.title}
@@ -712,7 +714,7 @@ const RecipeListRow = ({
             </span>
           )}
 
-          <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold text-slate-500">
+          <div className="mt-2 flex items-center gap-2 text-[11px] font-bold text-slate-500">
             <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1">
               <Clock3 size={11} />
               {formatDuration(recipe.totalTime)}
@@ -721,20 +723,6 @@ const RecipeListRow = ({
               <Users size={11} />
               {recipe.servings || 4} מ
             </span>
-          </div>
-
-          <div className="mt-2.5 flex gap-2">
-            {validIngredients.length > 0 && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-                className={`inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-[10px] border px-3 text-[12px] font-semibold transition-all ${isExpanded ? 'border-[#2f6d63]/40 bg-[#e6fcf6] text-[#2f6d63]' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
-              >
-                <Salad size={14} />
-                הצצה למתכון
-                {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-              </button>
-            )}
             {onSave && (
               <button
                 type="button"
@@ -747,26 +735,34 @@ const RecipeListRow = ({
                   setSaved(true);
                   setSaving(false);
                 }}
-                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border transition-all ${saved ? 'border-[#2f6d63] bg-[#e6fcf6] text-[#2f6d63]' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+                className={`mr-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border transition-all ${saved ? 'border-[#2f6d63] bg-[#e6fcf6] text-[#2f6d63]' : 'border-slate-200 bg-white text-slate-500 hover:text-[#2f6d63] hover:border-[#2f6d63]/30'}`}
                 title={saved ? 'נשמר' : 'שמור לספרייה'}
               >
-                {saving ? <Loader2 size={16} className="animate-spin" /> : <BookOpen size={16} />}
+                {saving ? <Loader2 size={15} className="animate-spin" /> : <Bookmark size={15} />}
               </button>
             )}
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); window.open(recipe.sourceUrl, '_blank'); }}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-              title="פתח מקור"
-            >
-              <ExternalLink size={16} />
-            </button>
           </div>
         </div>
-      </article>
+      </div>
 
-      {isExpanded && validIngredients.length > 0 && (
-        <IngredientCarousel ingredients={validIngredients} />
+      {/* Ingredient preview strip — visually part of the card */}
+      {validIngredients.length > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+            className={`w-full flex items-center justify-center gap-1.5 border-t px-3 py-2 text-[12px] font-semibold transition-colors ${isExpanded ? 'border-[#2f6d63]/20 bg-[#f0faf8] text-[#2f6d63]' : 'border-slate-100 bg-slate-50/60 text-slate-500 hover:text-[#2f6d63] hover:bg-[#f0faf8]'}`}
+          >
+            <Salad size={13} />
+            הצצה למתכון
+            {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+          {isExpanded && (
+            <div className="px-3 pb-3 bg-white">
+              <IngredientCarousel ingredients={validIngredients} />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
