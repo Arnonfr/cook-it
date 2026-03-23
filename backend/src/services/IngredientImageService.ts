@@ -64,14 +64,17 @@ export class IngredientImageService {
                 try {
                     const searchRes = await axios.post(
                         'https://google.serper.dev/images',
-                        { q: `${name} ingredient`, num: 1 },
-                        { 
+                        { q: `${name} white background isolated food ingredient`, num: 5 },
+                        {
                             headers: { 'X-API-KEY': this.serperApiKey },
-                            timeout: 5000 
+                            timeout: 5000
                         }
                     );
 
-                    const imageUrl = (searchRes.data as any).images?.[0]?.imageUrl;
+                    const images: any[] = (searchRes.data as any).images || [];
+                    // Prefer PNG (more likely to have white/transparent background)
+                    const png = images.find(img => img.imageUrl?.toLowerCase().includes('.png'));
+                    const imageUrl = (png || images[0])?.imageUrl;
                     if (imageUrl) {
                         // Store in DB
                         await prisma.ingredientImage.upsert({

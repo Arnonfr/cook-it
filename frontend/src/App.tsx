@@ -724,13 +724,17 @@ const RecipeListRow = ({
           </div>
 
           <div className="mt-2.5 flex gap-2">
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onOpen(); }}
-              className="inline-flex h-9 flex-1 items-center justify-center rounded-[10px] bg-[#2f6d63] px-3 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
-            >
-              פתח מתכון
-            </button>
+            {validIngredients.length > 0 && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+                className={`inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-[10px] border px-3 text-[12px] font-semibold transition-all ${isExpanded ? 'border-[#2f6d63]/40 bg-[#e6fcf6] text-[#2f6d63]' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+              >
+                <Salad size={14} />
+                הצצה למתכון
+                {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              </button>
+            )}
             {onSave && (
               <button
                 type="button"
@@ -757,15 +761,6 @@ const RecipeListRow = ({
             >
               <ExternalLink size={16} />
             </button>
-            {validIngredients.length > 0 && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-                className={`inline-flex h-9 w-9 items-center justify-center rounded-[10px] border transition-all ${isExpanded ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-              >
-                {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-              </button>
-            )}
           </div>
         </div>
       </article>
