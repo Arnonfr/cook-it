@@ -151,25 +151,8 @@ router.get('/search/unified', async (req, res) => {
             } catch {}
         }
 
-        // Batch-translate non-Hebrew web titles
-        try {
-            const webTitles = dedupedWeb.map(r => r.title);
-            const translated = await translationService.translateTitlesBatch(webTitles);
-            const HEBREW_RE = /[\u0590-\u05FF]/;
-            for (let i = 0; i < dedupedWeb.length; i++) {
-                const t = translated[i];
-                const originalIsHebrew = HEBREW_RE.test(dedupedWeb[i].title);
-                const translatedIsHebrew = HEBREW_RE.test(t.hebrewTitle);
-                // Apply translation if: original title is not Hebrew AND translated title contains Hebrew
-                if (!originalIsHebrew && translatedIsHebrew) {
-                    dedupedWeb[i].originalTitle = dedupedWeb[i].title;
-                    dedupedWeb[i].title = t.hebrewTitle;
-                    dedupedWeb[i].originalLanguage = t.originalLanguage !== 'he' ? t.originalLanguage : 'en';
-                }
-            }
-        } catch (translationError) {
-            console.error('[Search] Title translation failed:', translationError);
-        }
+        // Title translation removed from search for speed.
+        // Titles are translated when the full recipe is extracted.
 
         res.json({
             local,

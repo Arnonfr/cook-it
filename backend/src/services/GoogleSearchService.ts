@@ -11,31 +11,53 @@ const HEBREW_REGEX = /[\u0590-\u05FF]/;
 
 // Domains that are not single-recipe pages
 const BLOCKED_DOMAINS = new Set([
-    'youtube.com', 'youtu.be',
-    'facebook.com', 'fb.com',
+    'youtube.com', 'youtu.be', 'm.youtube.com',
+    'facebook.com', 'fb.com', 'm.facebook.com',
     'instagram.com',
     'tiktok.com',
-    'pinterest.com', 'pinterest.co.il', 'pin.it',
+    'pinterest.com', 'pinterest.co.il', 'pin.it', 'pinterest.co.uk', 'pinterest.de', 'pinterest.fr',
     'twitter.com', 'x.com',
     'reddit.com',
     'buzzfeed.com', 'tasty.co',
-    'allrecipes.com/gallery', // listicle gallery pages
+    'amazon.com', 'ebay.com',
+    'walmart.com', 'target.com',
 ]);
 
-// Listicle patterns: "5 מתכוני פסטה", "10 ways to cook", "15 Best Recipes"
-const LISTICLE_PATTERN = /^\d[\d,]*\s+(?:best|easy|quick|simple|delicious|amazing|ways?|ideas?|types?|kinds?|recipes?|cookies?|cakes?|dishes?|meals?|foods?|snacks?|desserts?|מתכוני|מתכונים|דרכים?|טיפים?|אופני|שיטות?|קל|פשוט|מנות?|סוגי|עוגי|עוגות|עוגיות|לחמים?|עוף|בשר|דגי|מרקי)/i;
+// URL path patterns that indicate non-recipe pages
+const BLOCKED_PATH_PATTERNS = [
+    /\/gallery\//i,
+    /\/slideshow\//i,
+    /\/collection\//i,
+    /\/roundup\//i,
+    /\/best-.*-recipes/i,
+];
+
+// Listicle title patterns
+const LISTICLE_PATTERNS = [
+    // Starts with number: "15 Best Recipes", "9600 עוגיות"
+    /^\d[\d,.']*\s+(?:best|easy|quick|simple|delicious|amazing|top|great|favorite|favourite|popular|ways?|ideas?|types?|kinds?|recipes?|cookies?|cakes?|dishes?|meals?|foods?|snacks?|desserts?|soups?|salads?|breads?|drinks?|cocktails?|smoothies?|מתכוני|מתכונים|דרכים?|טיפים?|אופני|שיטות?|קל|פשוט|מנות?|סוגי|עוגי|עוגות|עוגיות|לחמים?|עוף|בשר|דגי|מרקי|סלטי|משקאות)/i,
+    // "Top X", "Best X" pattern
+    /^(?:top|best|the\s+best|the\s+top)\s+\d+/i,
+    // Hebrew collection patterns: "אוסף מתכונים", "X מתכונים ש..."
+    /^(?:אוסף|רשימת|קולקציית)/i,
+    /\d+\s+מתכונים\s+(?:ש|ל|מ|ב)/i,
+];
 
 function isBlockedUrl(url: string): boolean {
     try {
-        const hostname = new URL(url).hostname.replace(/^www\./, '');
-        return BLOCKED_DOMAINS.has(hostname);
+        const parsed = new URL(url);
+        const hostname = parsed.hostname.replace(/^www\./, '');
+        if (BLOCKED_DOMAINS.has(hostname)) return true;
+        // Check path patterns
+        return BLOCKED_PATH_PATTERNS.some(p => p.test(parsed.pathname));
     } catch {
         return false;
     }
 }
 
 function isListicle(title: string): boolean {
-    return LISTICLE_PATTERN.test(title.trim());
+    const trimmed = title.trim();
+    return LISTICLE_PATTERNS.some(p => p.test(trimmed));
 }
 
 export class GoogleSearchService {
@@ -250,42 +272,30 @@ export class GoogleSearchService {
         }
     }
 
+    private serperCall(q: string, gl: string, hl: string) {
+        return axios.post<any>(
+            'https://google.serper.dev/search',
+            { q, gl, hl, num: 10 },
+            {
+                headers: { 'X-API-KEY': this.serperApiKey, 'Content-Type': 'application/json' },
+                timeout: 5000
+            }
+        ).catch(() => null);
+    }
+
     private async searchWithSerper(query: string): Promise<SearchResult[]> {
         const isHebrewQuery = HEBREW_REGEX.test(query);
 
-        // Build multiple search variations to get more results
-        const searchVariations: Array<{ q: string; gl: string; hl: string }> = [
-            { q: `${query} מתכון`, gl: 'il', hl: 'he' },
-            { q: `${query} מתכון מנות`, gl: 'il', hl: 'he' },
-        ];
+        // Run Hebrew search + English translation in PARALLEL (not sequential)
+        const hebrewSearch = this.serperCall(`${query} מתכון`, 'il', 'he');
 
-        // If Hebrew query, translate to English for international results
-        if (isHebrewQuery) {
-            const englishQuery = await this.translateQueryToEnglish(query);
-            searchVariations.push(
-                { q: `${englishQuery} recipe`, gl: 'us', hl: 'en' },
-                { q: `${englishQuery} easy homemade`, gl: 'us', hl: 'en' }
-            );
-        } else {
-            searchVariations.push(
-                { q: `${query} recipe`, gl: 'us', hl: 'en' },
-                { q: `${query} homemade`, gl: 'us', hl: 'en' }
-            );
-        }
+        const englishSearch: Promise<any> = isHebrewQuery
+            ? this.translateQueryToEnglish(query)
+                .then(en => this.serperCall(`${en} recipe`, 'us', 'en'))
+            : Promise.resolve(this.serperCall(`${query} recipe`, 'us', 'en')).then(p => p);
 
-        // Execute all searches in parallel
-        const searchPromises = searchVariations.map(variation =>
-            axios.post<any>(
-                'https://google.serper.dev/search',
-                { ...variation, num: 10 },
-                {
-                    headers: { 'X-API-KEY': this.serperApiKey, 'Content-Type': 'application/json' },
-                    timeout: 10000
-                }
-            ).catch(() => null)
-        );
-
-        const responses = await Promise.all(searchPromises);
+        // Only 2 API calls instead of 4
+        const responses = await Promise.all([hebrewSearch, englishSearch]);
 
         // Merge organic results from all responses
         let allOrganic: any[] = [];

@@ -2,6 +2,15 @@ import type { SearchResult, ParsedRecipe, UnifiedSearchResponse } from './types'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
+// Warm up Render free-tier backend (cold start takes ~30-50s)
+let _warmUpDone = false;
+export const warmUpBackend = () => {
+  if (_warmUpDone) return;
+  _warmUpDone = true;
+  const healthUrl = API_BASE_URL.replace(/\/api$/, '') + '/health';
+  fetch(healthUrl, { method: 'GET', mode: 'cors' }).catch(() => {});
+};
+
 // Check if running in Capacitor
 const isCapacitor = () => typeof (window as any).Capacitor !== 'undefined';
 
@@ -41,14 +50,29 @@ const nativeRequest = async (method: string, endpoint: string, params?: any, bod
       });
       fetchUrl = urlObj.toString();
     }
-    
+
     if (body) {
       fetchOptions.body = JSON.stringify(body);
     }
-    
-    const response = await fetch(fetchUrl, fetchOptions);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+
+    // AbortController for timeout (60s for parse, 30s for others)
+    const timeoutMs = endpoint.includes('/parse') ? 60000 : 30000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    fetchOptions.signal = controller.signal;
+
+    try {
+      const response = await fetch(fetchUrl, fetchOptions);
+      clearTimeout(timer);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json();
+    } catch (err: any) {
+      clearTimeout(timer);
+      if (err?.name === 'AbortError') {
+        throw new Error('השרת לא הגיב בזמן — נסה שוב');
+      }
+      throw err;
+    }
   }
 };
 

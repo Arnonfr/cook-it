@@ -29,7 +29,7 @@ import {
   AlertCircle,
   RefreshCw
 } from 'lucide-react';
-import { fetchCommunityRecipes, fetchLibrary, getIngredientImages, parseRecipe, searchUnified, saveRecipe, fetchSettings, updateSettings } from './api';
+import { fetchCommunityRecipes, fetchLibrary, getIngredientImages, parseRecipe, searchUnified, saveRecipe, fetchSettings, updateSettings, warmUpBackend } from './api';
 import type { SettingsResponse } from './api';
 import { ShareToast } from './components/ShareToast';
 import { SkeletonHero } from './components/Skeleton';
@@ -887,6 +887,7 @@ export const App = () => {
   };
 
   useEffect(() => {
+    warmUpBackend(); // Ping backend to wake Render free-tier
     void loadLibrary();
     void loadCommunity();
 
@@ -1013,27 +1014,37 @@ export const App = () => {
     setIsExtracting(true);
     setSearchError('');
 
-    try {
-      const recipe = await parseRecipe(targetUrl, MOCK_USER_ID);
-      setSelectedRecipe(recipe);
-      setPreviousView(view);
-      setView('recipe');
-      setImportUrl('');
-      setIsImportModalOpen(false);
-      void loadLibrary();
-      void loadCommunity();
-    } catch (error) {
-      console.error('Extraction failed', error);
-      const errorMessage = error instanceof Error ? error.message : 'החילוץ נכשל';
-      setSearchError(errorMessage);
-      setFallbackUrl(targetUrl);
-      setPreviousView(view);
-      setView('fallback');
-      setImportUrl('');
-      setIsImportModalOpen(false);
-    } finally {
-      setIsExtracting(false);
+    // Try up to 2 times (Render free tier cold start can cause first request to fail)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const recipe = await parseRecipe(targetUrl, MOCK_USER_ID);
+        setSelectedRecipe(recipe);
+        setPreviousView(view);
+        setView('recipe');
+        setImportUrl('');
+        setIsImportModalOpen(false);
+        void loadLibrary();
+        void loadCommunity();
+        setIsExtracting(false);
+        return;
+      } catch (error) {
+        console.error(`Extraction attempt ${attempt + 1} failed`, error);
+        if (attempt === 0) {
+          // First failure — wait briefly and retry (backend may be waking up)
+          await new Promise(r => setTimeout(r, 2000));
+          continue;
+        }
+        // Second failure — show fallback
+        const errorMessage = error instanceof Error ? error.message : 'החילוץ נכשל';
+        setSearchError(errorMessage);
+        setFallbackUrl(targetUrl);
+        setPreviousView(view);
+        setView('fallback');
+        setImportUrl('');
+        setIsImportModalOpen(false);
+      }
     }
+    setIsExtracting(false);
   };
 
   const handleOpenParsedRecipe = async (recipe: ParsedRecipe) => {
