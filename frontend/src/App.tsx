@@ -1268,7 +1268,17 @@ export const App = () => {
 
         {/* ─── SEARCH VIEW ─── */}
         {view === 'search' && (
-          <section className="mt-9">
+          <section className="relative mt-9">
+            {/* Loading overlay when extracting a recipe */}
+            {isExtracting && (
+              <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
+                <div className="flex flex-col items-center gap-4 rounded-[24px] bg-white px-10 py-8 shadow-2xl">
+                  <Loader2 className="animate-spin text-[#2f6d63]" size={40} />
+                  <p className="text-base font-bold text-slate-900">מחלץ מתכון...</p>
+                  <p className="text-sm text-slate-500">זה עשוי לקחת כמה שניות</p>
+                </div>
+              </div>
+            )}
             {searchError && (
               <div className="mb-4 rounded-[22px] border border-[#ff5a37]/20 bg-[#fff1ed] px-4 py-3 text-sm font-medium text-[#9a3412]">
                 {searchError}

@@ -2,7 +2,6 @@ import axios from 'axios';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { mockRecipes } from '../data/mockRecipes';
 import { mockRecipeToSearchResult, type SearchResult } from '../utils/recipeTransforms';
-import { RecipeParserService } from './RecipeParserService';
 import { env } from '../config/env';
 import { PrismaClient } from '@prisma/client';
 
@@ -16,13 +15,15 @@ const BLOCKED_DOMAINS = new Set([
     'facebook.com', 'fb.com',
     'instagram.com',
     'tiktok.com',
-    'pinterest.com', 'pinterest.co.il',
+    'pinterest.com', 'pinterest.co.il', 'pin.it',
     'twitter.com', 'x.com',
     'reddit.com',
+    'buzzfeed.com', 'tasty.co',
+    'allrecipes.com/gallery', // listicle gallery pages
 ]);
 
 // Listicle patterns: "5 מתכוני פסטה", "10 ways to cook", "15 Best Recipes"
-const LISTICLE_PATTERN = /^\d+\s+(?:best|easy|quick|ways?|ideas?|types?|kinds?|מתכוני|מתכונים|דרכים?|טיפים?|אופני|שיטות?|קל|פשוט|מנות?|סוגי|עוגי|עוגות|עוגיות|לחמים?|עוף|בשר|דגי|מרקי)/i;
+const LISTICLE_PATTERN = /^\d[\d,]*\s+(?:best|easy|quick|simple|delicious|amazing|ways?|ideas?|types?|kinds?|recipes?|cookies?|cakes?|dishes?|meals?|foods?|snacks?|desserts?|מתכוני|מתכונים|דרכים?|טיפים?|אופני|שיטות?|קל|פשוט|מנות?|סוגי|עוגי|עוגות|עוגיות|לחמים?|עוף|בשר|דגי|מרקי)/i;
 
 function isBlockedUrl(url: string): boolean {
     try {
@@ -38,12 +39,6 @@ function isListicle(title: string): boolean {
 }
 
 export class GoogleSearchService {
-    private parserService: RecipeParserService;
-
-    constructor() {
-        this.parserService = new RecipeParserService();
-    }
-
     // Always reads the current key — supports runtime updates via settings endpoint
     private get serperApiKey(): string {
         return env.serperApiKey;
@@ -302,7 +297,7 @@ export class GoogleSearchService {
 
         // Deduplicate by link, filter blocked domains + listicles, score by relevance
         const seenUrls = new Set<string>();
-        const scored = allOrganic
+        const results = allOrganic
             .filter((item: any) => {
                 if (!item.link || seenUrls.has(item.link)) return false;
                 if (isBlockedUrl(item.link)) return false;
@@ -311,7 +306,6 @@ export class GoogleSearchService {
                 return true;
             })
             .map((item: any) => {
-                // Score by relevance to query
                 const titleLower = (item.title || '').toLowerCase();
                 const snippetLower = (item.snippet || '').toLowerCase();
                 const queryLower = query.toLowerCase();
@@ -322,65 +316,27 @@ export class GoogleSearchService {
                 if (titleLower.includes('recipe') || titleLower.includes('מתכון')) score += 3;
                 if (/\d+\s*(min|דקות|hour|שעות)/.test(item.snippet || '')) score += 2;
 
-                return {
-                    title: item.title,
-                    url: item.link,
-                    snippet: item.snippet || '',
-                    sourceName: item.source || new URL(item.link).hostname,
-                    imageUrl: item.imageUrl || item.thumbnailUrl || undefined,
-                    score
-                };
-            })
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 25); // Top 25 results
+                const snippet = item.snippet || '';
+                const extractedTime = this.extractTimeFromText(snippet) || this.extractTimeFromText(item.title);
+                const extractedIngredients = this.extractIngredientsFromSnippet(snippet);
 
-        // Enrich results with recipe parsing (with timeout)
-        const enriched = await Promise.allSettled(
-            scored.map(async (item) => {
-                // Extract time from snippet/title
-                const extractedTime = this.extractTimeFromText(item.snippet) || this.extractTimeFromText(item.title);
-                
-                // Extract ingredients from snippet
-                const extractedIngredients = this.extractIngredientsFromSnippet(item.snippet);
-                
-                const basicResult: SearchResult = {
-                    sourceUrl: item.url,
+                const result: SearchResult = {
+                    sourceUrl: item.link,
                     title: item.title,
-                    sourceName: item.sourceName,
-                    image: item.imageUrl,
+                    sourceName: item.source || new URL(item.link).hostname,
+                    image: item.imageUrl || item.thumbnailUrl || undefined,
                     totalTime: extractedTime,
                     ingredientsPreview: extractedIngredients,
                     tags: []
                 };
-
-                try {
-                    const timeoutPromise = new Promise<null>((_, reject) =>
-                        setTimeout(() => reject(new Error('Parsing timeout')), 4000)
-                    );
-                    const parsePromise = this.parserService.extractRecipeSummary(item.url, item.title, item.sourceName);
-                    const summary = await Promise.race([parsePromise, timeoutPromise]);
-
-                    if (summary) {
-                        // Merge: prefer parsed image, fall back to Serper thumbnail
-                        return {
-                            ...summary,
-                            image: summary.image || item.imageUrl,
-                            totalTime: summary.totalTime || extractedTime,
-                            ingredientsPreview: summary.ingredientsPreview?.length ? summary.ingredientsPreview : extractedIngredients
-                        };
-                    }
-                } catch {
-                    // Parsing failed or timed out - use basic result
-                }
-
-                return basicResult;
+                return { result, score };
             })
-        );
+            .sort((a: any, b: any) => b.score - a.score)
+            .slice(0, 20)
+            .map((x: any) => x.result)
+            .filter((r: SearchResult) => r.title);
 
-        return enriched
-            .filter((result): result is PromiseFulfilledResult<SearchResult> => result.status === 'fulfilled')
-            .map((result: PromiseFulfilledResult<SearchResult>) => result.value)
-            .filter((result: SearchResult) => result.title);
+        return results;
     }
 
     /**
@@ -427,35 +383,13 @@ export class GoogleSearchService {
             && !isListicle(item.title)
         )).slice(0, 8);
 
-        const enriched = await Promise.allSettled(
-            uniqueResults.map(async (item) => {
-                const basicResult: SearchResult = {
-                    sourceUrl: item.url,
-                    title: item.title,
-                    sourceName: item.sourceName,
-                    ingredientsPreview: this.extractIngredientsFromSnippet(item.snippet),
-                    tags: []
-                };
-
-                try {
-                    const timeoutPromise = new Promise<null>((_, reject) =>
-                        setTimeout(() => reject(new Error('Parsing timeout')), 5000)
-                    );
-                    const parsePromise = this.parserService.extractRecipeSummary(item.url, item.title, item.sourceName);
-                    const summary = await Promise.race([parsePromise, timeoutPromise]);
-                    if (summary) return summary;
-                } catch {
-                    // Parsing failed or timed out – return basic result
-                }
-
-                return basicResult;
-            })
-        );
-
-        return enriched
-            .filter((result): result is PromiseFulfilledResult<SearchResult> => result.status === 'fulfilled')
-            .map((result) => result.value)
-            .filter((result) => result.title);
+        return uniqueResults.map((item) => ({
+            sourceUrl: item.url,
+            title: item.title,
+            sourceName: item.sourceName,
+            ingredientsPreview: this.extractIngredientsFromSnippet(item.snippet),
+            tags: []
+        }));
     }
 
     /**

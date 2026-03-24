@@ -15,8 +15,7 @@ import {
     RotateCcw,
     Scaling,
     ScanEye,
-  Printer,
-  Share2,
+    Share2,
     Users,
     Utensils,
     X,
@@ -609,24 +608,27 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
     const [targetPanSize, setTargetPanSize] = useState('24');
     const [showOriginal, setShowOriginal] = useState(false);
 
-    const handlePrint = () => {
-        window.print();
-    };
-
     const handleShare = async () => {
+        const shareUrl = recipe.sourceUrl || window.location.href;
         if (navigator.share) {
             try {
                 await navigator.share({
                     title: recipe.title,
-                    text: 'בדוק את המתכון הזה ל' + recipe.title + ' ב-Cookit!',
-                    url: window.location.href,
+                    text: 'בדוק את המתכון: ' + recipe.title,
+                    url: shareUrl,
                 });
             } catch (err) {
-                console.error('Error sharing:', err);
+                if ((err as Error)?.name !== 'AbortError') {
+                    console.error('Error sharing:', err);
+                }
             }
         } else {
-            navigator.clipboard.writeText(window.location.href);
-            alert('הקישור הועתק ללוח!');
+            try {
+                await navigator.clipboard.writeText(shareUrl);
+                alert('הקישור הועתק ללוח!');
+            } catch {
+                alert('שיתוף לא נתמך במכשיר זה');
+            }
         }
     };
 
@@ -781,13 +783,6 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                         className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-colors hover:bg-white/30 border border-white/20 shadow-sm"
                     >
                         <Share2 size={18} />
-                    </button>
-                    <button
-                        onClick={handlePrint}
-                        title="הדפסה"
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-colors hover:bg-white/30 border border-white/20 shadow-sm"
-                    >
-                        <Printer size={18} />
                     </button>
                 </div>
 
