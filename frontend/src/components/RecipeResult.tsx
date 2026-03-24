@@ -599,7 +599,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
     const [desiredServings, setDesiredServings] = useState(recipe.servings || 4);
     const [isScaleAccordionOpen, setIsScaleAccordionOpen] = useState(false);
     const [isSourceDrawerOpen, setIsSourceDrawerOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState<'steps' | 'ingredients'>('steps');
+    const [activeTab, setActiveTab] = useState<'steps' | 'ingredients' | 'original'>('steps');
     const [activeSection, setActiveSection] = useState<string>('');
     const [ingredientImages, setIngredientImages] = useState<Record<string, string>>({});
     const [panEnabled, setPanEnabled] = useState(false);
@@ -855,6 +855,17 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                             מצרכים <span className="opacity-60 bg-current/10 px-1.5 py-0.5 rounded-md text-[11px] font-medium">{displayIngredients.length}</span>
                         </span>
                     </button>
+                    {recipe.sourceUrl && (
+                        <button
+                            className={'flex-1 py-4 md:py-5 text-center text-[14px] md:text-[15px] font-medium border-b-[3px] transition-all ' + (activeTab === 'original' ? 'border-[#2f6d63] text-[#2f6d63] bg-slate-50/50' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/80')}
+                            onClick={() => setActiveTab('original')}
+                        >
+                            <span className="flex items-center justify-center gap-2">
+                                <Globe size={18} />
+                                מקור
+                            </span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -1149,6 +1160,30 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                                 ))}
                             </div>
                         )}
+                    </section>
+                )}
+
+                {activeTab === 'original' && recipe.sourceUrl && (
+                    <section className="relative -mx-3 -my-6 md:-mx-8 md:-my-10">
+                        <div className="flex items-center justify-between bg-slate-50 border-b border-slate-200 px-4 py-3">
+                            <a
+                                href={recipe.sourceUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-1.5 text-xs text-[#236eff] underline"
+                            >
+                                <ExternalLink size={12} />
+                                פתח בדפדפן
+                            </a>
+                            <span className="text-xs text-slate-500 truncate max-w-[60%]">{recipe.sourceName || new URL(recipe.sourceUrl).hostname}</span>
+                        </div>
+                        <iframe
+                            src={recipe.sourceUrl}
+                            className="w-full border-none bg-white"
+                            style={{ height: 'calc(100vh - 180px)' }}
+                            sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+                            title="Original Recipe"
+                        />
                     </section>
                 )}
             </div>

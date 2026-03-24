@@ -61,11 +61,12 @@ export class TranslationService {
             const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
             const titlesToTranslate = nonHebrewIndices.map((i) => titles[i]);
 
-            const prompt = `Translate these recipe titles to Hebrew and detect their original language.
-Input: ${JSON.stringify(titlesToTranslate)}
+            const prompt = `Translate these recipe titles to Hebrew (עברית). Output MUST be in Hebrew, not English.
+Input titles: ${JSON.stringify(titlesToTranslate)}
 
-Respond ONLY with a JSON array: [{"hebrew":"...","lang":"en"}]
-Use ISO 639-1 codes. Keep proper nouns.`;
+Respond ONLY with a JSON array where "hebrew" contains the Hebrew translation:
+[{"hebrew":"<HEBREW TITLE>","lang":"<original_lang_code>"}]
+Use ISO 639-1 language codes. Translate proper nouns too.`;
 
             const result = await model.generateContent({
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -122,14 +123,17 @@ Use ISO 639-1 codes. Keep proper nouns.`;
                 })),
             };
 
-            const prompt = `Translate this recipe to Hebrew. Keep the exact same JSON structure.
-Translate: title, ingredient names, ingredient originalSpec, step texts, section names.
-Keep numbers, quantities, units, IDs, and arrays unchanged.
-Also detect the original language.
+            const prompt = `You MUST translate ALL text fields to Hebrew (עברית). Do NOT keep any English or other language text in the output.
 
+Translate: title, ingredient names, ingredient originalSpec, step texts, section names.
+Keep numbers, quantities, units, IDs, and array structure UNCHANGED.
+Detect the original language code (e.g. "en", "fr").
+
+Input recipe:
 ${JSON.stringify(compact)}
 
-Respond ONLY with JSON: {"lang":"en","title":"...","ingredients":[...],"steps":[...]}`;
+Respond ONLY with valid JSON matching this structure exactly:
+{"lang":"<original_lang_code>","title":"<HEBREW TITLE>","ingredients":[...],"steps":[...]}`;
 
             const result = await model.generateContent({
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],

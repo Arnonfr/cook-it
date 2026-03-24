@@ -1036,8 +1036,22 @@ export const App = () => {
     }
   };
 
-  const handleOpenParsedRecipe = (recipe: ParsedRecipe) => {
-    setSelectedRecipe(recipe);
+  const handleOpenParsedRecipe = async (recipe: ParsedRecipe) => {
+    const isHebrew = /[\u0590-\u05FF]/.test(recipe.title || '');
+    // If not Hebrew and we have a URL, re-fetch to get translated version
+    if (!isHebrew && recipe.sourceUrl) {
+      setIsExtracting(true);
+      try {
+        const translated = await parseRecipe(recipe.sourceUrl, MOCK_USER_ID);
+        setSelectedRecipe(translated);
+      } catch {
+        setSelectedRecipe(recipe);  // Fall back to original on error
+      } finally {
+        setIsExtracting(false);
+      }
+    } else {
+      setSelectedRecipe(recipe);
+    }
     setPreviousView(view);
     setView('recipe');
   };
