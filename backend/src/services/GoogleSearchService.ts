@@ -2,6 +2,7 @@ import axios from 'axios';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { mockRecipes } from '../data/mockRecipes';
 import { mockRecipeToSearchResult, type SearchResult } from '../utils/recipeTransforms';
+import { RecipeParserService } from './RecipeParserService';
 import { env } from '../config/env';
 import { PrismaClient } from '@prisma/client';
 
@@ -36,11 +37,27 @@ const BLOCKED_PATH_PATTERNS = [
 const LISTICLE_PATTERNS = [
     // Starts with number: "15 Best Recipes", "9600 עוגיות"
     /^\d[\d,.']*\s+(?:best|easy|quick|simple|delicious|amazing|top|great|favorite|favourite|popular|ways?|ideas?|types?|kinds?|recipes?|cookies?|cakes?|dishes?|meals?|foods?|snacks?|desserts?|soups?|salads?|breads?|drinks?|cocktails?|smoothies?|מתכוני|מתכונים|דרכים?|טיפים?|אופני|שיטות?|קל|פשוט|מנות?|סוגי|עוגי|עוגות|עוגיות|לחמים?|עוף|בשר|דגי|מרקי|סלטי|משקאות)/i,
-    // "Top X", "Best X" pattern
+    // "Top X", "Best X" with number
     /^(?:top|best|the\s+best|the\s+top)\s+\d+/i,
+    // "The Best Cookie Recipes", "Best Chocolate Cake Recipes" (no number needed)
+    /^(?:the\s+)?best\s+\w[\w\s]{0,30}recipes?/i,
+    // "65 of Our Best...", "10 of the Top..."
+    /^\d+\s+of\s+(?:our|the|my|these)\s+/i,
+    // "Ultimate Guide", "Complete List"
+    /^(?:the\s+)?(?:ultimate|complete|definitive|comprehensive)\s+/i,
+    // "X Popular Recipes", "X Easy Cookie Recipes"
+    /^\d+\s+(?:popular|classic|traditional|famous|iconic|must-try|crowd-pleasing)/i,
     // Hebrew collection patterns: "אוסף מתכונים", "X מתכונים ש..."
     /^(?:אוסף|רשימת|קולקציית)/i,
     /\d+\s+מתכונים\s+(?:ש|ל|מ|ב)/i,
+    // "מגוון מתכונים" anywhere — collection pages
+    /מגוון\s+מתכונים/i,
+    // "Topic: מתכונים ל..." or "Topic - מתכונים ל..."
+    /^[^:–-]+[:–-]\s*מתכונים\s+ל/i,
+    // "מתכונים לעוגיות / לכל..." — plural recipe list
+    /^מתכונים\s+ל/i,
+    // "כל המתכונים ל..." / "כל מתכוני"
+    /^כל\s+(?:המתכונים|מתכוני)/i,
 ];
 
 function isBlockedUrl(url: string): boolean {
@@ -61,6 +78,12 @@ function isListicle(title: string): boolean {
 }
 
 export class GoogleSearchService {
+    private parserService: RecipeParserService;
+
+    constructor() {
+        this.parserService = new RecipeParserService();
+    }
+
     // Always reads the current key — supports runtime updates via settings endpoint
     private get serperApiKey(): string {
         return env.serperApiKey;
@@ -346,7 +369,55 @@ export class GoogleSearchService {
             .map((x: any) => x.result)
             .filter((r: SearchResult) => r.title);
 
-        return results;
+        // Enrich results that are missing images or ingredient preview
+        const enriched = await Promise.allSettled(
+            results.map(async (item) => {
+                // Skip enrichment if we already have image and ingredients
+                if (item.image && (item.ingredientsPreview?.length ?? 0) > 0) return item;
+                try {
+                    const timeoutPromise = new Promise<null>((_, reject) =>
+                        setTimeout(() => reject(new Error('timeout')), 3000)
+                    );
+                    const summary = await Promise.race([
+                        this.parserService.extractRecipeSummary(item.sourceUrl, item.title, item.sourceName),
+                        timeoutPromise
+                    ]);
+                    if (summary) {
+                        return {
+                            ...item,
+                            image: item.image || summary.image,
+                            totalTime: item.totalTime || summary.totalTime,
+                            ingredientsPreview: (item.ingredientsPreview?.length ?? 0) > 0
+                                ? item.ingredientsPreview
+                                : summary.ingredientsPreview
+                        };
+                    }
+                } catch {
+                    // enrichment timed out — try image search as last resort
+                }
+
+                // If still no image, try Serper image search for the recipe title
+                if (!item.image && item.title && this.serperApiKey) {
+                    try {
+                        const imgResp = await axios.post<any>(
+                            'https://google.serper.dev/images',
+                            { q: item.title, num: 1 },
+                            { headers: { 'X-API-KEY': this.serperApiKey, 'Content-Type': 'application/json' }, timeout: 3000 }
+                        );
+                        const firstImg = imgResp?.data?.images?.[0]?.imageUrl;
+                        if (firstImg) return { ...item, image: firstImg };
+                    } catch {
+                        // image search failed — keep as-is
+                    }
+                }
+
+                return item;
+            })
+        );
+
+        return enriched
+            .filter((r): r is PromiseFulfilledResult<SearchResult> => r.status === 'fulfilled')
+            .map(r => r.value);
     }
 
     /**
