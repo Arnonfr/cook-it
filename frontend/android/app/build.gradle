@@ -7,13 +7,16 @@ android {
         applicationId "com.cookit.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 4
-        versionName "1.0.3"
+        versionCode 5
+        versionName "1.1.0"
         // Version changelog:
         // 1.0.0 - Initial release
         // 1.0.1 - Fixed profile settings, search API, share functionality
         // 1.0.2 - Fixed ingredients preview in search results
         // 1.0.3 - Added security layer (rate limiting, helmet), improved step extraction
+        // 1.1.0 - New app icon (green C logo); filter social/video sites from search;
+        //         filter listicle pages; real recipe images from search; action buttons row layout;
+        //         timer click fix; block-site menu (3-dot); translation cache fix; international recipes
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

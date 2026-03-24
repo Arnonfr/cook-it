@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { mockRecipes } from '../data/mockRecipes';
 import { mockRecipeToSearchResult, type SearchResult } from '../utils/recipeTransforms';
 import { RecipeParserService } from './RecipeParserService';
@@ -8,6 +9,33 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const HEBREW_REGEX = /[\u0590-\u05FF]/;
+
+// Domains that are not single-recipe pages
+const BLOCKED_DOMAINS = new Set([
+    'youtube.com', 'youtu.be',
+    'facebook.com', 'fb.com',
+    'instagram.com',
+    'tiktok.com',
+    'pinterest.com', 'pinterest.co.il',
+    'twitter.com', 'x.com',
+    'reddit.com',
+]);
+
+// Listicle patterns: "5 מתכוני פסטה", "10 ways to cook", "15 Best Recipes"
+const LISTICLE_PATTERN = /^\d+\s+(?:best|easy|quick|ways?|ideas?|types?|kinds?|מתכוני|מתכונים|דרכים?|טיפים?|אופני|שיטות?|קל|פשוט|מנות?|סוגי|עוגי|עוגות|עוגיות|לחמים?|עוף|בשר|דגי|מרקי)/i;
+
+function isBlockedUrl(url: string): boolean {
+    try {
+        const hostname = new URL(url).hostname.replace(/^www\./, '');
+        return BLOCKED_DOMAINS.has(hostname);
+    } catch {
+        return false;
+    }
+}
+
+function isListicle(title: string): boolean {
+    return LISTICLE_PATTERN.test(title.trim());
+}
 
 export class GoogleSearchService {
     private parserService: RecipeParserService;
@@ -207,21 +235,41 @@ export class GoogleSearchService {
      * Free tier: 2,500 queries, no credit card required
      * Runs multiple search variations to get 20+ results.
      */
+    /**
+     * Translate a Hebrew search query to English using Gemini (for international search).
+     * Falls back to the original query if Gemini is unavailable.
+     */
+    private async translateQueryToEnglish(hebrewQuery: string): Promise<string> {
+        if (!env.geminiApiKey) return hebrewQuery;
+        try {
+            const genAI = new GoogleGenerativeAI(env.geminiApiKey);
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+            const result = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: `Translate this Hebrew food/recipe search query to English. Respond with ONLY the English translation, no explanation.\nQuery: ${hebrewQuery}` }] }],
+                generationConfig: { temperature: 0.1, maxOutputTokens: 50 }
+            });
+            const translated = result.response.text().trim();
+            return translated || hebrewQuery;
+        } catch {
+            return hebrewQuery;
+        }
+    }
+
     private async searchWithSerper(query: string): Promise<SearchResult[]> {
         const isHebrewQuery = HEBREW_REGEX.test(query);
-        
+
         // Build multiple search variations to get more results
         const searchVariations: Array<{ q: string; gl: string; hl: string }> = [
             { q: `${query} מתכון`, gl: 'il', hl: 'he' },
             { q: `${query} מתכון מנות`, gl: 'il', hl: 'he' },
         ];
-        
-        // If Hebrew query, also search English variations
+
+        // If Hebrew query, translate to English for international results
         if (isHebrewQuery) {
-            const englishQuery = query.replace(/[\u0590-\u05FF]/g, '').trim() || query;
+            const englishQuery = await this.translateQueryToEnglish(query);
             searchVariations.push(
                 { q: `${englishQuery} recipe`, gl: 'us', hl: 'en' },
-                { q: `${englishQuery} how to make`, gl: 'us', hl: 'en' }
+                { q: `${englishQuery} easy homemade`, gl: 'us', hl: 'en' }
             );
         } else {
             searchVariations.push(
@@ -252,11 +300,13 @@ export class GoogleSearchService {
             }
         }
 
-        // Deduplicate by link and score by relevance
+        // Deduplicate by link, filter blocked domains + listicles, score by relevance
         const seenUrls = new Set<string>();
         const scored = allOrganic
             .filter((item: any) => {
                 if (!item.link || seenUrls.has(item.link)) return false;
+                if (isBlockedUrl(item.link)) return false;
+                if (isListicle(item.title || '')) return false;
                 seenUrls.add(item.link);
                 return true;
             })
@@ -266,17 +316,18 @@ export class GoogleSearchService {
                 const snippetLower = (item.snippet || '').toLowerCase();
                 const queryLower = query.toLowerCase();
                 let score = 0;
-                
+
                 if (titleLower.includes(queryLower)) score += 10;
                 if (snippetLower.includes(queryLower)) score += 5;
                 if (titleLower.includes('recipe') || titleLower.includes('מתכון')) score += 3;
                 if (/\d+\s*(min|דקות|hour|שעות)/.test(item.snippet || '')) score += 2;
-                
+
                 return {
                     title: item.title,
                     url: item.link,
                     snippet: item.snippet || '',
                     sourceName: item.source || new URL(item.link).hostname,
+                    imageUrl: item.imageUrl || item.thumbnailUrl || undefined,
                     score
                 };
             })
@@ -296,6 +347,7 @@ export class GoogleSearchService {
                     sourceUrl: item.url,
                     title: item.title,
                     sourceName: item.sourceName,
+                    image: item.imageUrl,
                     totalTime: extractedTime,
                     ingredientsPreview: extractedIngredients,
                     tags: []
@@ -307,11 +359,12 @@ export class GoogleSearchService {
                     );
                     const parsePromise = this.parserService.extractRecipeSummary(item.url, item.title, item.sourceName);
                     const summary = await Promise.race([parsePromise, timeoutPromise]);
-                    
+
                     if (summary) {
-                        // Merge extracted data with parsed data
+                        // Merge: prefer parsed image, fall back to Serper thumbnail
                         return {
                             ...summary,
+                            image: summary.image || item.imageUrl,
                             totalTime: summary.totalTime || extractedTime,
                             ingredientsPreview: summary.ingredientsPreview?.length ? summary.ingredientsPreview : extractedIngredients
                         };
@@ -370,6 +423,8 @@ export class GoogleSearchService {
 
         const uniqueResults = rawResults.filter((item, index, items) => (
             items.findIndex((candidate) => candidate.url === item.url) === index
+            && !isBlockedUrl(item.url)
+            && !isListicle(item.title)
         )).slice(0, 8);
 
         const enriched = await Promise.allSettled(

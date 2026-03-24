@@ -427,7 +427,7 @@ const StepTimer = ({ minutes }: { minutes: number }) => {
         return (
             <button
                 type="button"
-                onClick={() => setExpanded(true)}
+                onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
                 className={'mt-3 flex items-center gap-2 rounded-[12px] border px-3 py-1.5 text-xs font-semibold transition-colors ' + (isActive ? 'border-[#236eff]/30 bg-[#236eff]/10 text-[#236eff]' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-[#236eff]/30 hover:text-[#236eff]')}
             >
                 <AlarmClock size={13} />
@@ -438,18 +438,18 @@ const StepTimer = ({ minutes }: { minutes: number }) => {
     }
 
     return (
-        <div className="mt-3 rounded-[14px] border border-[#236eff]/14 bg-[#236eff]/[0.06] p-3">
+        <div className="mt-3 rounded-[14px] border border-[#236eff]/14 bg-[#236eff]/[0.06] p-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between gap-2">
-                <button type="button" onClick={() => setExpanded(false)} className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#236eff]">
+                <button type="button" onClick={(e) => { e.stopPropagation(); setExpanded(false); }} className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#236eff]">
                     <AlarmClock size={13} />טיימר לשלב
                 </button>
                 <div className="text-base font-mono font-semibold text-slate-900">{minutesLabel}:{secondsLabel}</div>
                 <div className="flex gap-1.5">
-                    <button type="button" onClick={() => setRunning((v) => !v)} className={BUTTON_SECONDARY}>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setRunning((v) => !v); }} className={BUTTON_SECONDARY}>
                         {running ? <Pause size={14} /> : <Play size={14} />}
                         {running ? 'עצור' : 'הפעל'}
                     </button>
-                    <button type="button" onClick={() => { setSecondsLeft(totalSeconds); setRunning(false); }} className={BUTTON_TERTIARY}>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setSecondsLeft(totalSeconds); setRunning(false); }} className={BUTTON_TERTIARY}>
                         <RotateCcw size={14} />
                     </button>
                 </div>
@@ -599,7 +599,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
     const [desiredServings, setDesiredServings] = useState(recipe.servings || 4);
     const [isScaleAccordionOpen, setIsScaleAccordionOpen] = useState(false);
     const [isSourceDrawerOpen, setIsSourceDrawerOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState<'steps' | 'ingredients' | 'original'>('steps');
+    const [activeTab, setActiveTab] = useState<'steps' | 'ingredients'>('steps');
     const [activeSection, setActiveSection] = useState<string>('');
     const [ingredientImages, setIngredientImages] = useState<Record<string, string>>({});
     const [panEnabled, setPanEnabled] = useState(false);
@@ -607,7 +607,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
     const [basePanSize, setBasePanSize] = useState('24');
     const [targetPanShape, setTargetPanShape] = useState<PanShape>('round');
     const [targetPanSize, setTargetPanSize] = useState('24');
-    const [showOriginal] = useState(false);
+    const [showOriginal, setShowOriginal] = useState(false);
 
     const handlePrint = () => {
         window.print();
@@ -756,34 +756,38 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent" />
 
-                <div className="absolute top-6 left-4 z-10 flex flex-col gap-2 md:top-10 md:left-6">
-                    <button
-                        onClick={onBack}
-                        className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-colors hover:bg-white/30 border border-white/20 md:h-12 md:w-12 shadow-sm"
-                    >
-                        <ArrowRight size={20} />
-                    </button>
+                {/* Back button — top-right */}
+                <button
+                    onClick={onBack}
+                    className="absolute top-5 right-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-colors hover:bg-white/30 border border-white/20 shadow-sm"
+                >
+                    <ArrowRight size={18} />
+                </button>
+
+                {/* Action buttons — top-left, horizontal row */}
+                <div className="absolute top-5 left-4 z-10 flex flex-row gap-2">
                     {onSave && (
                         <button
                             onClick={() => onSave(recipe)}
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#2f6d63] transition-colors hover:bg-slate-50 md:h-12 md:w-12 shadow-sm"
+                            title="שמור לספרייה"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#2f6d63] transition-colors hover:bg-slate-50 shadow-sm"
                         >
-                            <Bookmark size={20} />
+                            <Bookmark size={18} />
                         </button>
                     )}
                     <button
                         onClick={handleShare}
                         title="שיתוף מתכון"
-                        className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-colors hover:bg-white/30 border border-white/20 md:h-12 md:w-12 shadow-sm"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-colors hover:bg-white/30 border border-white/20 shadow-sm"
                     >
-                        <Share2 size={20} />
+                        <Share2 size={18} />
                     </button>
                     <button
                         onClick={handlePrint}
-                        title="הדפסה או שמירה כ-PDF"
-                        className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-colors hover:bg-white/30 border border-white/20 md:h-12 md:w-12 shadow-sm"
+                        title="הדפסה"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-colors hover:bg-white/30 border border-white/20 shadow-sm"
                     >
-                        <Printer size={20} />
+                        <Printer size={18} />
                     </button>
                 </div>
 
@@ -795,7 +799,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                         </h1>
                         
                         {/* Compact info row */}
-                        <div className="flex items-center gap-4 text-[13px] font-medium text-white/90">
+                        <div className="flex flex-wrap items-center gap-4 text-[13px] font-medium text-white/90">
                             {recipe.totalTime && (
                                 <span className="flex items-center gap-1.5">
                                     <Clock3 size={14} /> {formatDuration(recipe.totalTime)}
@@ -807,12 +811,22 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                                 </span>
                             )}
                             {recipe.sourceName && (
-                                <button 
-                                    type="button" 
-                                    onClick={() => setIsSourceDrawerOpen(true)} 
+                                <button
+                                    type="button"
+                                    onClick={() => setIsSourceDrawerOpen(true)}
                                     className="flex items-center gap-1.5 underline underline-offset-2 hover:text-white transition-colors"
                                 >
                                     <Globe size={14} /> {recipe.sourceName}
+                                </button>
+                            )}
+                            {recipe.originalRecipe && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowOriginal(v => !v)}
+                                    className="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/15 px-3 py-1 text-[12px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/25"
+                                >
+                                    <Globe size={12} />
+                                    {showOriginal ? 'הצג עברית' : `הצג מקור`}
                                 </button>
                             )}
                         </div>
@@ -839,15 +853,6 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                         <span className="flex items-center justify-center gap-2">
                             <Utensils size={18} />
                             מצרכים <span className="opacity-60 bg-current/10 px-1.5 py-0.5 rounded-md text-[11px] font-medium">{displayIngredients.length}</span>
-                        </span>
-                    </button>
-                    <button
-                        className={'flex-1 py-4 md:py-5 text-center text-[14px] md:text-[15px] font-medium border-b-[3px] transition-all ' + (activeTab === 'original' ? 'border-[#2f6d63] text-[#2f6d63] bg-slate-50/50' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/80')}
-                        onClick={() => setActiveTab('original')}
-                    >
-                        <span className="flex items-center justify-center gap-2">
-                            <Globe size={18} />
-                            המתכון המקורי
                         </span>
                     </button>
                 </div>
@@ -1028,27 +1033,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                     </aside>
                 )}
 
-                {activeTab === 'original' && (
-                    <div className="flex flex-col items-center gap-4">
-                        {recipe.sourceUrl && !recipe.sourceUrl.startsWith('mock://') ? (
-                            <div className="w-full rounded-[20px] border border-slate-200 overflow-hidden shadow-sm" style={{ height: 'calc(100vh - 200px)' }}>
-                                <iframe
-                                    src={recipe.sourceUrl}
-                                    className="h-full w-full border-none"
-                                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-                                    title="המתכון המקורי"
-                                />
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center gap-3 py-20 text-center">
-                                <Globe size={48} className="text-slate-300" />
-                                <p className="text-lg font-bold text-slate-400">מתכון מובנה – אין עמוד מקור</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === 'steps' && (
+{activeTab === 'steps' && (
                     <section className="relative">
                         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between px-2">
                             <div>

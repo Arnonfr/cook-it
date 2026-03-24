@@ -216,7 +216,7 @@ router.get('/parse', async (req, res) => {
             const existing = await prisma.recipe.findUnique({ where: { sourceUrl: url } });
             if (existing?.translatedJson) {
                 const cached = JSON.parse(existing.translatedJson);
-                if (cached.title) {
+                if (cached.title && translationService.isHebrew(cached.title)) {
                     finalRecipe = {
                         ...recipe,
                         originalTitle: recipe.title,

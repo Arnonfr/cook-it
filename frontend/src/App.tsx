@@ -11,6 +11,7 @@ import {
   Globe,
   Home,
   Loader2,
+  MoreVertical,
   Plus,
   Search,
   Salad,
@@ -671,16 +672,19 @@ const RecipeListRow = ({
   recipe,
   onOpen,
   onSave,
+  onBlock,
   showLanguage,
 }: {
   recipe: SearchResult;
   onOpen: () => void;
   onSave?: (recipe: SearchResult) => void;
+  onBlock?: (domain: string) => void;
   showLanguage?: boolean;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(recipe.isMine ?? false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const langCode = recipe.originalLanguage;
   const langName = langCode && langCode !== 'he' ? LANGUAGE_NAMES[langCode] || langCode : null;
   // Filter out scraped snippets masquerading as ingredients (too long, no quantity pattern)
@@ -691,9 +695,46 @@ const RecipeListRow = ({
 
   return (
     <div
-      className="rounded-[18px] border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.05)] overflow-hidden cursor-pointer hover:border-[#2f6d63]/30 hover:shadow-md transition-all"
+      className="relative rounded-[18px] border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.05)] overflow-hidden cursor-pointer hover:border-[#2f6d63]/30 hover:shadow-md transition-all"
       onClick={onOpen}
     >
+      {/* 3-dot menu */}
+      {onBlock && menuOpen && (
+        <div
+          className="absolute inset-0 z-20"
+          onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
+        />
+      )}
+      {onBlock && (
+        <div className="absolute top-2 left-2 z-30">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v); }}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 transition-colors"
+          >
+            <MoreVertical size={16} />
+          </button>
+          {menuOpen && (
+            <div className="absolute top-8 left-0 z-40 min-w-[180px] rounded-[12px] border border-slate-200 bg-white shadow-xl py-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  try {
+                    const domain = new URL(recipe.sourceUrl).hostname.replace(/^www\./, '');
+                    onBlock(domain);
+                  } catch {}
+                }}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-[#ff5a37] hover:bg-slate-50 text-right"
+              >
+                <X size={14} />
+                אל תציג יותר מאתר זה
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       {/* Main card row */}
       <div className="flex gap-3 p-3">
         <img
@@ -792,6 +833,18 @@ export const App = () => {
   const [showAllWeb, setShowAllWeb] = useState(false);
 
   const [keepScreenOn, setKeepScreenOn] = useState(() => localStorage.getItem('keep_screen_on') !== 'false');
+  const [blockedDomains, setBlockedDomains] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('blocked_domains') || '[]')); } catch { return new Set(); }
+  });
+
+  const handleBlockDomain = (domain: string) => {
+    setBlockedDomains(prev => {
+      const next = new Set(prev);
+      next.add(domain);
+      localStorage.setItem('blocked_domains', JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   // Share toast state
   const [shareToast, setShareToast] = useState<{
@@ -922,7 +975,13 @@ export const App = () => {
   };
 
   const WEB_PAGE_SIZE = 20;
-  const visibleWebResults = showAllWeb ? webResults : webResults.slice(0, WEB_PAGE_SIZE);
+  const filteredWebResults = webResults.filter(r => {
+    try {
+      const domain = new URL(r.sourceUrl).hostname.replace(/^www\./, '');
+      return !blockedDomains.has(domain);
+    } catch { return true; }
+  });
+  const visibleWebResults = showAllWeb ? filteredWebResults : filteredWebResults.slice(0, WEB_PAGE_SIZE);
 
   const handleSearch = async (forcedQuery?: string) => {
     const targetQuery = (forcedQuery ?? query).trim();
@@ -1235,7 +1294,7 @@ export const App = () => {
                 )}
 
                 {/* Web Results */}
-                {webResults.length > 0 && (
+                {filteredWebResults.length > 0 && (
                   <div className={localResults.length > 0 ? 'mt-6' : ''}>
                     <h3 className="mb-3 text-[15px] font-bold text-slate-800">תוצאות מהאינטרנט</h3>
                     <div className="space-y-4">
@@ -1245,18 +1304,19 @@ export const App = () => {
                           recipe={recipe}
                           onOpen={() => handleExtractRecipe(recipe.sourceUrl)}
                           onSave={handleSaveSearchResult}
+                          onBlock={handleBlockDomain}
                           showLanguage
                         />
                       ))}
                     </div>
 
-                    {!showAllWeb && webResults.length > WEB_PAGE_SIZE && (
+                    {!showAllWeb && filteredWebResults.length > WEB_PAGE_SIZE && (
                       <button
                         type="button"
                         onClick={() => setShowAllWeb(true)}
                         className="mt-5 w-full inline-flex h-11 items-center justify-center rounded-[14px] border border-slate-200 bg-white text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
                       >
-                        הצג עוד ({webResults.length - WEB_PAGE_SIZE})
+                        הצג עוד ({filteredWebResults.length - WEB_PAGE_SIZE})
                       </button>
                     )}
                   </div>

@@ -73,7 +73,23 @@ jobs:
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           testers: arnon7700@gmail.com
           file: frontend/android/app/build/outputs/apk/debug/app-debug.apk
-          releaseNotes: "CookIt Build ${{ github.run_number }}"
+          releaseNotes: |
+            CookIt v1.1.0 — Build ${{ github.run_number }}
+
+            ✨ חדש:
+            - אייקון אפליקציה חדש (לוגו ירוק עם האות C)
+            - חסימת אתרים — תפריט 3 נקודות על כל תוצאת חיפוש
+            - תרגום מתכונים לעברית — תיקון קאש לא תקין
+
+            🔍 שיפורי חיפוש:
+            - סינון יוטיוב / פייסבוק / אינסטגרם מהתוצאות
+            - סינון דפי רשימות-מתכונים (5 עוגיות שתוכלו...)
+            - תמונות אמיתיות של המתכון בכל תוצאה
+            - תוצאות מאתרים בינלאומיים
+
+            🎨 שיפורי UI:
+            - כפתורי פעולה בשורה אופקית בתוך המתכון
+            - לחיצה על טיימר לא מסמנת שלב כהושלם
 
   build-release:
     runs-on: ubuntu-latest
