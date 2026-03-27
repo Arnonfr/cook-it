@@ -58,6 +58,18 @@ const LISTICLE_PATTERNS = [
     /^מתכונים\s+ל/i,
     // "כל המתכונים ל..." / "כל מתכוני"
     /^כל\s+(?:המתכונים|מתכוני)/i,
+    // "X מתכונים" at start — collection pages with count
+    /^\d+\s+מתכונים/i,
+    // Site index pages: "מתכוני X - כל המתכונים"
+    /כל\s+המתכונים/i,
+    // Archive / category pages: "קטגוריה:", "ארכיון:", "תגית:"
+    /^(?:קטגוריה|ארכיון|תגית|תג|category|tag|archive)\s*:/i,
+    // "X recipes for Y" collection titles
+    /^\d+\s+recipes?\s+for\b/i,
+    // "How to make X different ways"
+    /\bdifferent\s+ways?\b/i,
+    // "X ways to cook..."
+    /^\d+\s+ways?\s+(?:to|you)/i,
 ];
 
 function isBlockedUrl(url: string): boolean {
@@ -365,59 +377,11 @@ export class GoogleSearchService {
                 return { result, score };
             })
             .sort((a: any, b: any) => b.score - a.score)
-            .slice(0, 20)
+            .slice(0, 15)
             .map((x: any) => x.result)
             .filter((r: SearchResult) => r.title);
 
-        // Enrich results that are missing images or ingredient preview
-        const enriched = await Promise.allSettled(
-            results.map(async (item) => {
-                // Skip enrichment if we already have image and ingredients
-                if (item.image && (item.ingredientsPreview?.length ?? 0) > 0) return item;
-                try {
-                    const timeoutPromise = new Promise<null>((_, reject) =>
-                        setTimeout(() => reject(new Error('timeout')), 3000)
-                    );
-                    const summary = await Promise.race([
-                        this.parserService.extractRecipeSummary(item.sourceUrl, item.title, item.sourceName),
-                        timeoutPromise
-                    ]);
-                    if (summary) {
-                        return {
-                            ...item,
-                            image: item.image || summary.image,
-                            totalTime: item.totalTime || summary.totalTime,
-                            ingredientsPreview: (item.ingredientsPreview?.length ?? 0) > 0
-                                ? item.ingredientsPreview
-                                : summary.ingredientsPreview
-                        };
-                    }
-                } catch {
-                    // enrichment timed out — try image search as last resort
-                }
-
-                // If still no image, try Serper image search for the recipe title
-                if (!item.image && item.title && this.serperApiKey) {
-                    try {
-                        const imgResp = await axios.post<any>(
-                            'https://google.serper.dev/images',
-                            { q: item.title, num: 1 },
-                            { headers: { 'X-API-KEY': this.serperApiKey, 'Content-Type': 'application/json' }, timeout: 3000 }
-                        );
-                        const firstImg = imgResp?.data?.images?.[0]?.imageUrl;
-                        if (firstImg) return { ...item, image: firstImg };
-                    } catch {
-                        // image search failed — keep as-is
-                    }
-                }
-
-                return item;
-            })
-        );
-
-        return enriched
-            .filter((r): r is PromiseFulfilledResult<SearchResult> => r.status === 'fulfilled')
-            .map(r => r.value);
+        return results;
     }
 
     /**
@@ -523,7 +487,28 @@ export class GoogleSearchService {
             }
         }
 
-        // 2. Fall back to local mock recipes
+        // 2. Fall back to DuckDuckGo HTML scraping
+        try {
+            console.log(`[Search] Trying DuckDuckGo fallback for "${query}"`);
+            const ddgResults = await this.searchRecipePagesFromWeb(query);
+            if (ddgResults.length > 0) {
+                console.log(`[Search] DuckDuckGo returned ${ddgResults.length} results for "${query}"`);
+                try {
+                    await prisma.searchCache.upsert({
+                        where: { query: normalizedQuery },
+                        update: { resultsJson: JSON.stringify(ddgResults) },
+                        create: { query: normalizedQuery, resultsJson: JSON.stringify(ddgResults) }
+                    });
+                } catch (cacheError) {
+                    console.error('[Search] Failed to save DDG search cache:', cacheError);
+                }
+                return ddgResults;
+            }
+        } catch (ddgError) {
+            console.error('[Search] DuckDuckGo fallback failed, using mock recipes:', ddgError instanceof Error ? ddgError.message : ddgError);
+        }
+
+        // 3. Fall back to local mock recipes
         console.log(`[Search] Using local recipe catalog for "${query}"`);
         return this.searchMockRecipes(query);
     }

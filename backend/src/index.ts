@@ -72,8 +72,8 @@ console.log('[Routes] Loading settings routes...');
 app.use('/api/settings', settingsRoutes);
 console.log('[Routes] All routes loaded successfully');
 
-const server = app.listen(port, () => {
-    console.log(`Cookit Backend running on port ${port}`);
+const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`Cookit Backend running on port ${port} (0.0.0.0)`);
 });
 
 server.on('error', (err) => {

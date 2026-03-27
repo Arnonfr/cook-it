@@ -627,7 +627,12 @@ export class RecipeParserService {
                         properties: {
                             stepNumber: { type: SchemaType.INTEGER },
                             text: { type: SchemaType.STRING, description: "The step instruction text exactly as written" },
-                            section: { type: SchemaType.STRING, description: "Sub-recipe section name if applicable" }
+                            section: { type: SchemaType.STRING, description: "Sub-recipe section name if applicable" },
+                            ingredientIds: {
+                                type: SchemaType.ARRAY,
+                                description: "1-based indices of ingredients used in this step (e.g. [1, 3] means 1st and 3rd ingredient in the list)",
+                                items: { type: SchemaType.INTEGER }
+                            }
                         },
                         required: ["stepNumber", "text"]
                     }
@@ -645,6 +650,7 @@ export class RecipeParserService {
 - פצל הוראות הכנה לשלבים לוגיים — מקסימום 10 שלבים לכל חלק (section)
 - אחד שלבים קצרים עוקבים שעוסקים באותה פעולה לשלב אחד (לדוגמה: "מוסיפים X ומערבבים" ו-"מוסיפים Y" → שלב אחד)
 - כל שלב צריך לתאר פעולה מובחנת ומשמעותית
+- לכל שלב, ציין ב-ingredientIds את המספרים הסידוריים (1-based) של המצרכים המשמשים בשלב זה (לפי סדרם ברשימת המצרכים שחילצת)
 
 הטקסט:
 ${cleanText.substring(0, 30000)}`;
@@ -683,9 +689,18 @@ ${cleanText.substring(0, 30000)}`;
         }));
 
         const steps = (parsed.steps || []).map((step: any, idx: number) => {
-            const ingredientIds = ingredients
-                .filter((ing: any) => ingredientMentionedInStep(ing.name, step.text || ''))
-                .map((ing: any) => ing.id);
+            let ingredientIds: number[];
+            // Prefer Gemini-provided 1-based indices (more accurate than text matching)
+            if (Array.isArray(step.ingredientIds) && step.ingredientIds.length > 0) {
+                ingredientIds = (step.ingredientIds as number[])
+                    .filter((i) => i >= 1 && i <= ingredients.length)
+                    .map((i) => ingredients[i - 1].id);
+            } else {
+                // Fallback to text matching
+                ingredientIds = ingredients
+                    .filter((ing: any) => ingredientMentionedInStep(ing.name, step.text || ''))
+                    .map((ing: any) => ing.id);
+            }
             return {
                 stepNumber: step.stepNumber || (idx + 1),
                 text: step.text || '',

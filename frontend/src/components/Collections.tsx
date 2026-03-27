@@ -48,11 +48,21 @@ export const Collections = ({ userId, onSelectRecipe, onBack }: CollectionsProps
     }
   };
 
-  const handleOpenCollection = async (collectionId: string) => {
+  const handleOpenCollection = async (_collectionId: string, collectionName: string) => {
     setLoading(true);
     try {
-      const data = await fetchCollectionDetail(collectionId);
-      setSelectedCollection(data);
+      const data = await fetchCollectionDetail(userId, collectionName);
+      // Backend returns { collection: {...}, recipes: [...] }
+      // Map to the shape Collections.tsx uses: { ...collection, items: recipes.map(...) }
+      setSelectedCollection({
+        ...data.collection,
+        items: (data.recipes || []).map((r: any) => ({
+          recipeId: r.id,
+          recipe: r,
+          collectionId: data.collection.id,
+          createdAt: r.createdAt || ''
+        }))
+      });
     } catch (e) {
       console.error('Failed to load collection detail', e);
     } finally {
@@ -140,7 +150,7 @@ export const Collections = ({ userId, onSelectRecipe, onBack }: CollectionsProps
             {collections.map((collection) => (
               <button
                 key={collection.id}
-                onClick={() => handleOpenCollection(collection.id)}
+                onClick={() => handleOpenCollection(collection.id, collection.name)}
                 className="flex items-center gap-4 bg-white p-4 rounded-[20px] border border-slate-200 shadow-sm text-right transition-all hover:shadow-md"
               >
                 <div className="h-14 w-14 rounded-[14px] bg-[#e6fcf6] flex items-center justify-center text-[#2f6d63]">
@@ -148,7 +158,7 @@ export const Collections = ({ userId, onSelectRecipe, onBack }: CollectionsProps
                 </div>
                 <div className="flex-1">
                   <h3 className="font-bold text-slate-900">{collection.name}</h3>
-                  <p className="text-xs text-slate-500">{collection.items?.length || 0} מתכונים</p>
+                  <p className="text-xs text-slate-500">{(collection as any).itemCount ?? collection.items?.length ?? 0} מתכונים</p>
                 </div>
                 <ChevronRight size={18} className="text-slate-400" />
               </button>

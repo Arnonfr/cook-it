@@ -165,6 +165,84 @@ router.get('/search/unified', async (req, res) => {
     }
 });
 
+// GET /api/enrich?url= — Quick summary for search card previews (no AI, DB cache first)
+router.get('/enrich', async (req, res) => {
+    const url = req.query.url as string;
+    if (!url) return res.status(400).json({ error: 'url required' });
+
+    try {
+        // 1. Check DB cache — instant return if already parsed
+        const cached = await prisma.recipe.findUnique({ where: { sourceUrl: url } });
+        if (cached?.parsedJson && cached.parseStatus === 'parsed') {
+            const parsed = JSON.parse(cached.parsedJson);
+            let ingredients = parsed.ingredients?.slice(0, 5).map((i: any) => i.originalSpec || i.name) || [];
+            // Prefer translated ingredients if available and Hebrew
+            if (cached.translatedJson) {
+                try {
+                    const trans = JSON.parse(cached.translatedJson);
+                    if (trans.title && /[\u0590-\u05FF]/.test(trans.title)) {
+                        ingredients = trans.ingredients?.slice(0, 5).map((i: any) => i.originalSpec || i.name) || ingredients;
+                    }
+                } catch {}
+            }
+            return res.json({
+                image: parsed.image,
+                ingredientsPreview: ingredients,
+                totalTime: parsed.totalTime,
+                servings: parsed.servings,
+                cached: true
+            });
+        }
+
+        // 2. Quick fetch + JSON-LD extraction (no AI, 6s timeout)
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 6000);
+        let html = '';
+        try {
+            const response = await fetch(url, {
+                signal: controller.signal,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml',
+                    'Accept-Language': 'he,en;q=0.9',
+                }
+            });
+            clearTimeout(timer);
+            if (!response.ok) return res.json({});
+            html = await response.text();
+        } catch {
+            clearTimeout(timer);
+            return res.json({});
+        }
+
+        // Try JSON-LD
+        const ldMatch = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i);
+        if (ldMatch) {
+            try {
+                let ld = JSON.parse(ldMatch[1]);
+                if (Array.isArray(ld)) ld = ld.find((x: any) => x?.['@type'] === 'Recipe' || (Array.isArray(x?.['@type']) && x['@type'].includes('Recipe')));
+                if (ld?.['@type'] === 'Recipe' || (Array.isArray(ld?.['@type']) && ld['@type'].includes('Recipe'))) {
+                    const imgRaw = ld.image;
+                    const image = Array.isArray(imgRaw) ? (typeof imgRaw[0] === 'string' ? imgRaw[0] : imgRaw[0]?.url)
+                        : (typeof imgRaw === 'string' ? imgRaw : imgRaw?.url);
+                    const totalTime = ld.totalTime || ld.cookTime;
+                    const servings = parseInt(String(ld.recipeYield || '')) || undefined;
+                    const ingredients: string[] = Array.isArray(ld.recipeIngredient) ? ld.recipeIngredient.slice(0, 5) : [];
+                    return res.json({ image, ingredientsPreview: ingredients, totalTime, servings });
+                }
+            } catch {}
+        }
+
+        // og:image fallback
+        const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1]
+            ?? html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)?.[1];
+        return res.json({ image: ogImage });
+
+    } catch {
+        return res.json({});
+    }
+});
+
 // GET /api/search?q=lasagna
 router.get('/search', async (req, res) => {
     try {
@@ -188,6 +266,55 @@ router.get('/parse', async (req, res) => {
 
         if (!url) {
             return res.status(400).json({ error: 'URL parameter is required' });
+        }
+
+        // Check DB cache first — if recipe was already extracted, return immediately
+        try {
+            const cached = await prisma.recipe.findUnique({ where: { sourceUrl: url } });
+            if (cached?.parsedJson && cached.parseStatus === 'parsed') {
+                const parsedRecipe = JSON.parse(cached.parsedJson);
+                let finalRecipe = parsedRecipe;
+
+                // Apply stored translation if available and Hebrew
+                if (cached.translatedJson) {
+                    const translation = JSON.parse(cached.translatedJson);
+                    if (translation.title && translationService.isHebrew(translation.title)) {
+                        finalRecipe = {
+                            ...parsedRecipe,
+                            title: translation.title,
+                            ingredients: translation.ingredients || parsedRecipe.ingredients,
+                            steps: translation.steps || parsedRecipe.steps,
+                            originalTitle: parsedRecipe.title,
+                            originalLanguage: cached.originalLanguage || 'en',
+                            originalRecipe: {
+                                title: parsedRecipe.title,
+                                ingredients: parsedRecipe.ingredients,
+                                steps: parsedRecipe.steps
+                            }
+                        };
+                    }
+                }
+
+                // Still link to user if userId provided
+                if (userId) {
+                    try {
+                        let user = await prisma.user.findUnique({ where: { id: userId } });
+                        if (!user) {
+                            user = await prisma.user.create({ data: { id: userId, email: `user-${userId}@example.com` } });
+                        }
+                        await prisma.savedRecipe.upsert({
+                            where: { userId_recipeId: { userId, recipeId: cached.id } },
+                            update: {},
+                            create: { userId, recipeId: cached.id }
+                        });
+                    } catch {}
+                }
+
+                console.log(`[Parse] Returning cached recipe for ${url}`);
+                return res.json({ recipe: { ...finalRecipe, id: cached.id, sourceUrl: url } });
+            }
+        } catch (cacheErr) {
+            console.error('[Parse] Cache check failed:', cacheErr);
         }
 
         // MVP: In-memory parsing without caching yet for immediate feedback

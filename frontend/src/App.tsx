@@ -29,8 +29,8 @@ import {
   AlertCircle,
   RefreshCw
 } from 'lucide-react';
-import { fetchCommunityRecipes, fetchLibrary, getIngredientImages, parseRecipe, searchUnified, saveRecipe, fetchSettings, updateSettings, warmUpBackend } from './api';
-import type { SettingsResponse } from './api';
+import { fetchCommunityRecipes, fetchLibrary, getIngredientImages, parseRecipe, searchUnified, saveRecipe, fetchSettings, updateSettings, warmUpBackend, enrichRecipe } from './api';
+import type { SettingsResponse, EnrichmentData } from './api';
 import { ShareToast } from './components/ShareToast';
 import { SkeletonHero } from './components/Skeleton';
 
@@ -38,7 +38,7 @@ import { SkeletonHero } from './components/Skeleton';
 const RecipeResult = lazy(() => import('./components/RecipeResult').then(m => ({ default: m.RecipeResult })));
 import type { ParsedRecipe, SearchResult } from './types';
 
-type View = 'home' | 'search' | 'recipe' | 'fallback' | 'profile';
+type View = 'home' | 'search' | 'recipe' | 'fallback' | 'profile' | 'library';
 
 const DIETARY_OPTIONS = [
   { id: 'meat',    label: 'בשר',         emoji: '🥩' },
@@ -488,6 +488,89 @@ const ProfileView = ({ onBack, keepScreenOn, onKeepScreenOnChange }: { onBack: (
   );
 };
 
+/* ─── Library View ─── */
+function LibraryView({ recipes, onOpen }: { recipes: ParsedRecipe[]; onOpen: (r: ParsedRecipe) => void; onBack: () => void }) {
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<string | null>(null);
+
+  const FILTERS = ['מהירים', 'בשרי', 'צמחוני', 'אפייה', 'מרקים'];
+
+  const filtered = recipes.filter(r => {
+    const matchSearch = !search || r.title?.includes(search) || r.sourceName?.includes(search);
+    const matchFilter = !filter || (r.tags ?? []).some(t => t.includes(filter)) || r.title?.includes(filter) || r.difficulty?.includes(filter);
+    return matchSearch && matchFilter;
+  });
+
+  return (
+    <div className="min-h-screen bg-[#F0F4F8] pb-28" dir="rtl">
+      {/* Header */}
+      <div className="sticky top-0 z-20 bg-[#F0F4F8]/90 backdrop-blur-md pt-12 pb-3 px-4">
+        <h1 className="text-2xl font-bold text-slate-900 mb-3">הספרייה שלי</h1>
+        <div className="relative">
+          <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="חיפוש בספרייה..."
+            className="w-full rounded-[14px] border border-slate-200 bg-white py-3 pr-9 pl-4 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#236EFF]/30"
+          />
+        </div>
+        {/* Filter pills */}
+        <div className="flex gap-2 mt-3 overflow-x-auto pb-1 no-scrollbar">
+          {FILTERS.map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(filter === f ? null : f)}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${filter === f ? 'bg-[#236EFF] text-white' : 'bg-white text-slate-600 border border-slate-200'}`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Results */}
+      <div className="px-4 mt-2 space-y-3">
+        {filtered.length === 0 ? (
+          <div className="mt-20 text-center text-slate-400">
+            <BookOpen size={32} className="mx-auto mb-3 opacity-40" />
+            <p>{recipes.length === 0 ? 'הספרייה ריקה — חלץ מתכון כדי להתחיל' : 'אין תוצאות לחיפוש זה'}</p>
+          </div>
+        ) : filtered.map((recipe, i) => (
+          <article
+            key={recipe.sourceUrl || i}
+            onClick={() => onOpen(recipe)}
+            className="flex gap-3 cursor-pointer rounded-[18px] border border-slate-200 bg-white p-3 shadow-sm hover:shadow-md transition-all"
+          >
+            <img
+              src={recipe.image || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=400&q=70'}
+              alt={recipe.title}
+              className="h-24 w-24 shrink-0 rounded-[14px] object-cover"
+            />
+            <div className="min-w-0 flex-1">
+              <h3 className="line-clamp-2 text-[1rem] font-bold leading-5 text-slate-950">{recipe.title}</h3>
+              <p className="mt-1 text-xs text-slate-500">{recipe.sourceName || ''}</p>
+              <div className="mt-2 flex gap-2 text-[11px] text-slate-500 flex-wrap">
+                {recipe.totalTime && (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-bold">
+                    <Clock3 size={10} />{recipe.totalTime}
+                  </span>
+                )}
+                {recipe.servings && (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-bold">
+                    <Users size={10} />{recipe.servings} מ׳
+                  </span>
+                )}
+              </div>
+            </div>
+          </article>
+        ))}
+        <p className="text-center text-xs text-slate-400 py-4">{filtered.length} מתכונים</p>
+      </div>
+    </div>
+  );
+}
+
 const MOCK_USER_ID = 'user-123';
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -674,12 +757,14 @@ const RecipeListRow = ({
   onSave,
   onBlock,
   showLanguage,
+  enrichment,
 }: {
   recipe: SearchResult;
   onOpen: () => void;
   onSave?: (recipe: SearchResult) => void;
   onBlock?: (domain: string) => void;
   showLanguage?: boolean;
+  enrichment?: EnrichmentData;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -687,9 +772,16 @@ const RecipeListRow = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const langCode = recipe.originalLanguage;
   const langName = langCode && langCode !== 'he' ? LANGUAGE_NAMES[langCode] || langCode : null;
+
+  // Merge enrichment data over base recipe data
+  const displayImage = enrichment?.image || recipe.image;
+  const displayTime = enrichment?.totalTime || recipe.totalTime;
+  const displayServings = enrichment?.servings || recipe.servings;
+  const ingredientsSource = (enrichment?.ingredientsPreview?.length ? enrichment.ingredientsPreview : recipe.ingredientsPreview) ?? [];
+
   // Filter out scraped snippets masquerading as ingredients (too long, no quantity pattern)
   // Allow items with numbers, measurements, or common ingredient words
-  const validIngredients = (recipe.ingredientsPreview ?? []).filter(
+  const validIngredients = ingredientsSource.filter(
     s => s.length <= 70 && /\d|כוס|כוסות|כף|כפות|כפית|כפיות|גרם|ק"ג|מ"ל|ליטר|יח|יחידה|קורט|שן|שיני|פרוס|חביל|קופס|שוקולד|בצל|שום|שמן|מלח|פלפל|סוכר|קמח|ביצ|חלב|גבינ|חמא|לימון|עשבי|תיבול|פסטה|אורז|בשר|עוף|דג|ירק|פירות|קינמון|אורגנו|בזיליקום|עגבנ|גזר|תפוח|תפו"א|בטטה|חציל|פטרי|תירס|נענע|פטרוזיליה|כוסברה|שמיר|סלרי|כרוב|חסה|מלפפון|אבוקדו|בננה|תפוז|לימון|תות|תפוח|אגס|שזיף|אפרסק|מנגו|אננס|דובדבן|אגוז|שקד|אגס|קישוא|פלפל|חלה|לחם|עוגה|בבקה|סופלה|מאפה|פשטידה|קציץ|סטייק|נתח|שניצל|כרעיים|כנף|חזה|שוק|בשר|טחון|עוף|הודו|ברווז|כבש|בקר|עגל|סלמון|אמנון|לברק|דניס|מושט|טונה|סרדין|מרלוז|קוד|פילה/i.test(s)
   );
 
@@ -698,72 +790,44 @@ const RecipeListRow = ({
       className="relative rounded-[18px] border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.05)] overflow-hidden cursor-pointer hover:border-[#2f6d63]/30 hover:shadow-md transition-all"
       onClick={onOpen}
     >
-      {/* 3-dot menu */}
+      {/* Backdrop to close 3-dot menu */}
       {onBlock && menuOpen && (
         <div
-          className="absolute inset-0 z-20"
+          className="fixed inset-0 z-20"
           onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
         />
-      )}
-      {onBlock && (
-        <div className="absolute top-2 left-2 z-30">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v); }}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 transition-colors"
-          >
-            <MoreVertical size={16} />
-          </button>
-          {menuOpen && (
-            <div className="absolute top-8 left-0 z-40 min-w-[180px] rounded-[12px] border border-slate-200 bg-white shadow-xl py-1">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  try {
-                    const domain = new URL(recipe.sourceUrl).hostname.replace(/^www\./, '');
-                    onBlock(domain);
-                  } catch {}
-                }}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-[#ff5a37] hover:bg-slate-50 text-right"
-              >
-                <X size={14} />
-                אל תציג יותר מאתר זה
-              </button>
-            </div>
-          )}
-        </div>
       )}
       {/* Main card row */}
       <div className="flex gap-3 p-3">
         <img
-          src={recipe.image || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80'}
+          src={displayImage || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80'}
           alt={recipe.title}
           className="h-28 w-28 shrink-0 rounded-[14px] object-cover"
         />
-        <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-2 text-[1.1rem] font-bold leading-5 text-slate-950">{recipe.title}</h3>
-          <p className="mt-1 text-xs text-slate-500">
+        <div className="min-w-0 flex-1 flex flex-col">
+          <h3 className="line-clamp-2 text-[1.05rem] font-bold leading-5 text-slate-950">{recipe.title}</h3>
+          <p className="mt-1 text-xs text-slate-500 truncate">
             {recipe.sourceName || 'מקור'} · {recipe.difficulty || 'מתכון'}
           </p>
 
           {showLanguage && langName && (
-            <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+            <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 self-start">
               <Globe size={10} />
               מקור: {langName}
             </span>
           )}
 
-          <div className="mt-2 flex items-center gap-2 text-[11px] font-bold text-slate-500">
+          {/* Badges + actions row — pinned to bottom of content */}
+          <div className="mt-auto pt-2 flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
             <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1">
               <Clock3 size={11} />
-              {formatDuration(recipe.totalTime)}
+              {formatDuration(displayTime)}
             </span>
             <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1">
               <Users size={11} />
-              {recipe.servings || 4} מ
+              {displayServings || 4} מ׳
             </span>
+            <div className="mr-auto flex items-center gap-1">
             {onSave && (
               <button
                 type="button"
@@ -776,12 +840,44 @@ const RecipeListRow = ({
                   setSaved(true);
                   setSaving(false);
                 }}
-                className={`mr-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border transition-all ${saved ? 'border-[#2f6d63] bg-[#e6fcf6] text-[#2f6d63]' : 'border-slate-200 bg-white text-slate-500 hover:text-[#2f6d63] hover:border-[#2f6d63]/30'}`}
+                className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border transition-all ${saved ? 'border-[#2f6d63] bg-[#e6fcf6] text-[#2f6d63]' : 'border-slate-200 bg-white text-slate-500 hover:text-[#2f6d63] hover:border-[#2f6d63]/30'}`}
                 title={saved ? 'נשמר' : 'שמור לספרייה'}
               >
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <Bookmark size={15} />}
               </button>
             )}
+            {/* 3-dot block menu — inline at end of badges row */}
+            {onBlock && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v); }}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 transition-colors"
+                >
+                  <MoreVertical size={15} />
+                </button>
+                {menuOpen && (
+                  <div className="absolute bottom-9 left-0 z-30 min-w-[180px] rounded-[12px] border border-slate-200 bg-white shadow-xl py-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuOpen(false);
+                        try {
+                          const domain = new URL(recipe.sourceUrl).hostname.replace(/^www\./, '');
+                          onBlock(domain);
+                        } catch {}
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-[#ff5a37] hover:bg-slate-50 text-right"
+                    >
+                      <X size={14} />
+                      אל תציג יותר מאתר זה
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            </div>
           </div>
         </div>
       </div>
@@ -831,6 +927,7 @@ export const App = () => {
   const [localResults, setLocalResults] = useState<SearchResult[]>([]);
   const [webResults, setWebResults] = useState<SearchResult[]>([]);
   const [showAllWeb, setShowAllWeb] = useState(false);
+  const [enrichments, setEnrichments] = useState<Record<string, EnrichmentData>>({});
 
   const [keepScreenOn, setKeepScreenOn] = useState(() => localStorage.getItem('keep_screen_on') !== 'false');
   const [blockedDomains, setBlockedDomains] = useState<Set<string>>(() => {
@@ -992,11 +1089,24 @@ export const App = () => {
     setLoading(true);
     setSearchError('');
     setShowAllWeb(false);
+    setEnrichments({});
 
     try {
       const data = await searchUnified(targetQuery, MOCK_USER_ID);
       setLocalResults(data.local);
       setWebResults(data.web);
+
+      // Background enrichment — fire for all web results, update cards as each resolves
+      const toEnrich = data.web.slice(0, 15);
+      toEnrich.forEach(result => {
+        enrichRecipe(result.sourceUrl)
+          .then(enrichment => {
+            if (enrichment.image || enrichment.ingredientsPreview?.length) {
+              setEnrichments(prev => ({ ...prev, [result.sourceUrl]: enrichment }));
+            }
+          })
+          .catch(() => {}); // silent — never block the UI
+      });
     } catch (error) {
       console.error('Search failed', error);
       setSearchError('לא הצלחתי להביא תוצאות כרגע. נסה שוב בעוד רגע או חפש ניסוח אחר.');
@@ -1011,21 +1121,23 @@ export const App = () => {
     const targetUrl = (url || importUrl).trim();
     if (!targetUrl) return;
 
+    // Show live page immediately while parsing in background
+    setFallbackUrl(targetUrl);
+    setPreviousView(view);
     setIsExtracting(true);
-    setSearchError('');
+    setIsImportModalOpen(false);
+    setImportUrl('');
+    setView('fallback');
 
     // Try up to 2 times (Render free tier cold start can cause first request to fail)
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const recipe = await parseRecipe(targetUrl, MOCK_USER_ID);
         setSelectedRecipe(recipe);
-        setPreviousView(view);
-        setView('recipe');
-        setImportUrl('');
-        setIsImportModalOpen(false);
         void loadLibrary();
         void loadCommunity();
         setIsExtracting(false);
+        setView('recipe');
         return;
       } catch (error) {
         console.error(`Extraction attempt ${attempt + 1} failed`, error);
@@ -1034,17 +1146,10 @@ export const App = () => {
           await new Promise(r => setTimeout(r, 2000));
           continue;
         }
-        // Second failure — show fallback
-        const errorMessage = error instanceof Error ? error.message : 'החילוץ נכשל';
-        setSearchError(errorMessage);
-        setFallbackUrl(targetUrl);
-        setPreviousView(view);
-        setView('fallback');
-        setImportUrl('');
-        setIsImportModalOpen(false);
+        // Second failure — stay on fallback (live page) with error state
+        setIsExtracting(false);
       }
     }
-    setIsExtracting(false);
   };
 
   const handleOpenParsedRecipe = async (recipe: ParsedRecipe) => {
@@ -1118,14 +1223,20 @@ export const App = () => {
           <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={() => setView(previousView)}
+              onClick={() => { setIsExtracting(false); setView(previousView); }}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition-colors hover:bg-slate-50"
             >
               <ArrowLeft size={20} />
             </button>
             <div>
               <h1 className="text-base font-bold text-slate-900 md:text-lg">עמוד מקורי</h1>
-              <p className="text-[11px] font-medium text-[#ff5a37] md:text-xs">שגיאה בחילוץ האוטומטי (מציג את האתר המקורי)</p>
+              {isExtracting ? (
+                <p className="text-[11px] font-medium text-[#2f6d63] md:text-xs flex items-center gap-1">
+                  <Loader2 size={10} className="animate-spin" /> מחלץ מתכון אוטומטית...
+                </p>
+              ) : (
+                <p className="text-[11px] font-medium text-[#ff5a37] md:text-xs">לא הצלחתי לחלץ אוטומטית</p>
+              )}
             </div>
           </div>
           <a
@@ -1138,8 +1249,21 @@ export const App = () => {
             <span className="hidden sm:inline">פתח בדפדפן</span>
           </a>
         </header>
+        {/* Animated loading bar */}
+        <div className="h-1 shrink-0 bg-slate-100 overflow-hidden">
+          {isExtracting && (
+            <div className="h-full bg-[#2f6d63] animate-pulse" style={{ width: '100%', animationDuration: '1.5s' }} />
+          )}
+        </div>
         <div className="relative flex-1">
           <iframe src={fallbackUrl} className="h-full w-full border-none bg-white" sandbox="allow-same-origin allow-scripts allow-forms allow-popups" title="Fallback Recipe" />
+          {/* Floating extraction status badge */}
+          {isExtracting && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full bg-[#2f6d63] px-5 py-2.5 text-white text-sm font-bold shadow-xl">
+              <Loader2 size={15} className="animate-spin" />
+              מחלץ מתכון...
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1341,6 +1465,7 @@ export const App = () => {
                           onSave={handleSaveSearchResult}
                           onBlock={handleBlockDomain}
                           showLanguage
+                          enrichment={enrichments[recipe.sourceUrl]}
                         />
                       ))}
                     </div>
@@ -1359,6 +1484,15 @@ export const App = () => {
               </>
             )}
           </section>
+        )}
+
+        {/* ─── LIBRARY VIEW ─── */}
+        {view === 'library' && (
+          <LibraryView
+            recipes={libraryRecipes}
+            onOpen={handleOpenParsedRecipe}
+            onBack={() => setView('home')}
+          />
         )}
 
         {/* ─── PROFILE VIEW ─── */}
@@ -1392,6 +1526,13 @@ export const App = () => {
             title="חיפוש"
           >
             <Search size={24} />
+          </button>
+          <button
+            className={`flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors ${view === 'library' ? 'text-[#2f6d63] bg-[#e6fcf6]' : 'text-slate-600 hover:bg-slate-100'}`}
+            onClick={() => setView('library')}
+            title="ספרייה"
+          >
+            <BookOpen size={24} />
           </button>
           <button
             className={`flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors ${view === 'profile' ? 'text-[#2f6d63] bg-[#e6fcf6]' : 'text-slate-600 hover:bg-slate-100'}`}

@@ -349,6 +349,7 @@ const IngredientItem = ({
     scaleFactor,
     measureMode,
     isLast,
+    imgUrl,
 }: {
     ing: NormalizedIngredient;
     completed: boolean;
@@ -356,6 +357,7 @@ const IngredientItem = ({
     scaleFactor: number;
     measureMode: MeasureMode;
     isLast?: boolean;
+    imgUrl?: string;
 }) => {
     const converted = scaleIngredientDisplay(ing, scaleFactor, measureMode);
 
@@ -363,16 +365,30 @@ const IngredientItem = ({
         <button
             type="button"
             onClick={onToggle}
-            className={'flex w-full items-start gap-4 py-3 md:py-4 text-right transition-all ' + (completed ? 'opacity-50' : 'hover:bg-slate-50') + ' ' + (!isLast ? 'border-b border-slate-200/60' : '')}
+            className={'flex w-full items-center gap-3 py-3 md:py-3.5 text-right transition-all ' + (completed ? 'opacity-50' : 'hover:bg-slate-50') + ' ' + (!isLast ? 'border-b border-slate-200/60' : '')}
         >
-            <div className={'mt-0.5 flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full transition-all ' + (completed ? 'text-[#236eff]' : 'border-2 border-slate-300 bg-transparent')}>
-                {completed && <CheckCircle2 size={24} className="stroke-[2]" />}
+            {/* Ingredient image or fallback */}
+            <div className="h-12 w-12 shrink-0 rounded-xl border border-slate-100 overflow-hidden flex items-center justify-center" style={{ backgroundColor: '#f8f8f8' }}>
+                {imgUrl ? (
+                    <img
+                        src={imgUrl}
+                        alt={ing.name}
+                        className="h-full w-full object-contain"
+                        style={{ mixBlendMode: 'multiply' }}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                ) : (
+                    <Utensils size={16} className="text-slate-300" />
+                )}
+            </div>
+            <div className={'mt-0.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full transition-all ' + (completed ? 'text-[#236eff]' : 'border-2 border-slate-300 bg-transparent')}>
+                {completed && <CheckCircle2 size={22} className="stroke-[2]" />}
             </div>
             <div className="min-w-0 flex-1">
-                <div className={'text-[15px] md:text-[17px] font-bold ' + (completed ? 'text-slate-500 line-through' : 'text-slate-900')}>
+                <div className={'text-[15px] md:text-[16px] font-bold ' + (completed ? 'text-slate-500 line-through' : 'text-slate-900')}>
                     {ing.name}
                 </div>
-                <p className="mt-0.5 text-sm md:text-[15px] font-medium text-slate-500">
+                <p className="mt-0.5 text-sm font-medium text-slate-500">
                     {converted.quantityLabel}{converted.unitLabel ? ' ' + converted.unitLabel : ''}
                 </p>
                 {converted.note && <p className="mt-0.5 text-xs text-slate-400">{converted.note}</p>}
@@ -515,13 +531,14 @@ const StepCard = ({
                         const imgUrl = ingredientImages[ing.name.toLowerCase().trim()];
                         const display = formatIngredientDisplay(ing, scaleFactor, measureMode);
                         return (
-                            <div key={ing.id} className="flex flex-col items-center gap-1.5 min-w-[68px]">
-                                <div className="h-14 w-14 md:h-16 md:w-16 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center overflow-hidden p-1">
+                            <div key={ing.id} className="flex flex-col items-center gap-1.5 min-w-[72px]">
+                                <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl border border-slate-100 shadow-sm flex items-center justify-center overflow-hidden p-1.5" style={{ backgroundColor: '#f8f8f8' }}>
                                     {imgUrl ? (
                                         <img
                                             src={imgUrl}
                                             alt={ing.name}
                                             className="h-full w-full object-contain"
+                                            style={{ objectFit: 'contain', mixBlendMode: 'multiply' }}
                                             onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                         />
                                     ) : (
@@ -761,13 +778,14 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                 {/* Back button — top-right */}
                 <button
                     onClick={onBack}
-                    className="absolute top-5 right-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-colors hover:bg-white/30 border border-white/20 shadow-sm"
+                    className="absolute right-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-colors hover:bg-white/30 border border-white/20 shadow-sm"
+                    style={{ top: 'max(20px, env(safe-area-inset-top))' }}
                 >
                     <ArrowRight size={18} />
                 </button>
 
                 {/* Action buttons — top-left, horizontal row */}
-                <div className="absolute top-5 left-4 z-10 flex flex-row gap-2">
+                <div className="absolute left-4 z-10 flex flex-row gap-2" style={{ top: 'max(20px, env(safe-area-inset-top))' }}>
                     {onSave && (
                         <button
                             onClick={() => onSave(recipe)}
@@ -1029,6 +1047,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                                                     scaleFactor={totalScale}
                                                     measureMode={measureMode}
                                                     isLast={index === ings.length - 1}
+                                                    imgUrl={ingredientImages[ing.name.toLowerCase().trim()]}
                                                 />
                                             ))}
                                         </div>

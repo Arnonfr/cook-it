@@ -12,7 +12,7 @@ const parsePort = (value: string | undefined, fallback: number) => {
 // Mutable at runtime — settings endpoint can update keys without full restart
 export const env = {
     port: parsePort(process.env.PORT, 3001),
-    databaseUrl: process.env.DATABASE_URL || 'file:./dev.db',
+    databaseUrl: process.env.DATABASE_URL || '',
     googleApiKey: process.env.GOOGLE_API_KEY?.trim() || 'MOCK_FOR_NOW',
     googleCx: process.env.GOOGLE_CX?.trim() || 'MOCK_FOR_NOW',
     // API Keys - MUST be set via environment variables

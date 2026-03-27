@@ -124,12 +124,12 @@ export const createCollection = async (userId: string, name: string) => {
   return await nativeRequest('POST', '/collections', undefined, { userId, name });
 };
 
-export const addRecipeToCollection = async (recipeId: string, collectionId: string) => {
-  return await nativeRequest('POST', `/collections/${collectionId}/recipes`, undefined, { recipeId });
+export const addRecipeToCollection = async (userId: string, collectionName: string, recipeId: string) => {
+  return await nativeRequest('POST', '/collections/add', undefined, { userId, collectionName, recipeId });
 };
 
-export const fetchCollectionDetail = async (collectionId: string) => {
-  return await nativeRequest('GET', `/collections/detail/${collectionId}`);
+export const fetchCollectionDetail = async (userId: string, collectionName: string) => {
+  return await nativeRequest('GET', `/collections/${userId}/${encodeURIComponent(collectionName)}`);
 };
 
 export interface KeyStatus {
@@ -142,6 +142,18 @@ export interface SettingsResponse {
   geminiApiKey: KeyStatus;
   serperApiKey: KeyStatus;
 }
+
+export interface EnrichmentData {
+  image?: string;
+  ingredientsPreview?: string[];
+  totalTime?: string;
+  servings?: number;
+  cached?: boolean;
+}
+
+export const enrichRecipe = async (url: string): Promise<EnrichmentData> => {
+  return await nativeRequest('GET', '/enrich', { url });
+};
 
 export const fetchSettings = async (): Promise<SettingsResponse> => {
   return await nativeRequest('GET', '/settings');
