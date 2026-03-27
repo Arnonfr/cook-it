@@ -36,11 +36,11 @@ const BLOCKED_PATH_PATTERNS = [
 // Listicle title patterns
 const LISTICLE_PATTERNS = [
     // Starts with number: "15 Best Recipes", "9600 עוגיות"
-    /^\d[\d,.']*\s+(?:best|easy|quick|simple|delicious|amazing|top|great|favorite|favourite|popular|ways?|ideas?|types?|kinds?|recipes?|cookies?|cakes?|dishes?|meals?|foods?|snacks?|desserts?|soups?|salads?|breads?|drinks?|cocktails?|smoothies?|מתכוני|מתכונים|דרכים?|טיפים?|אופני|שיטות?|קל|פשוט|מנות?|סוגי|עוגי|עוגות|עוגיות|לחמים?|עוף|בשר|דגי|מרקי|סלטי|משקאות)/i,
+    /^\d[\d,.']*\s+(?:best|easy|quick|simple|delicious|amazing|top|great|favorite|favourite|popular|ways?|ideas?|types?|kinds?|recipes?|cookies?|cakes?|dishes?|meals?|foods?|snacks?|desserts?|soups?|salads?|breads?|drinks?|cocktails?|smoothies?|מתכוני|מתכונים|דרכים?|טיפים?|אופני|שיטות?|קל|פשוט|מנות?|סוגי)/i,
     // "Top X", "Best X" with number
     /^(?:top|best|the\s+best|the\s+top)\s+\d+/i,
-    // "The Best Cookie Recipes", "Best Chocolate Cake Recipes" (no number needed)
-    /^(?:the\s+)?best\s+\w[\w\s]{0,30}recipes?/i,
+    // "The Best Cookie Recipes", "Best Chocolate Cake Recipes" (no number needed, plural only)
+    /^(?:the\s+)?best\s+\w[\w\s]{0,30}recipes\b/i,
     // "65 of Our Best...", "10 of the Top..."
     /^\d+\s+of\s+(?:our|the|my|these)\s+/i,
     // "Ultimate Guide", "Complete List"
@@ -287,26 +287,6 @@ export class GoogleSearchService {
      * Free tier: 2,500 queries, no credit card required
      * Runs multiple search variations to get 20+ results.
      */
-    /**
-     * Translate a Hebrew search query to English using Gemini (for international search).
-     * Falls back to the original query if Gemini is unavailable.
-     */
-    private async translateQueryToEnglish(hebrewQuery: string): Promise<string> {
-        if (!env.geminiApiKey) return hebrewQuery;
-        try {
-            const genAI = new GoogleGenerativeAI(env.geminiApiKey);
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
-            const result = await model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: `Translate this Hebrew food/recipe search query to English. Respond with ONLY the English translation, no explanation.\nQuery: ${hebrewQuery}` }] }],
-                generationConfig: { temperature: 0.1, maxOutputTokens: 50 }
-            });
-            const translated = result.response.text().trim();
-            return translated || hebrewQuery;
-        } catch {
-            return hebrewQuery;
-        }
-    }
-
     private serperCall(q: string, gl: string, hl: string) {
         return axios.post<any>(
             'https://google.serper.dev/search',
@@ -319,18 +299,13 @@ export class GoogleSearchService {
     }
 
     private async searchWithSerper(query: string): Promise<SearchResult[]> {
-        const isHebrewQuery = HEBREW_REGEX.test(query);
+        // Fire both calls immediately — no Gemini translation delay
+        const [hebrewResp, englishResp] = await Promise.all([
+            this.serperCall(`${query} מתכון`, 'il', 'he'),
+            this.serperCall(`${query} recipe`, 'us', 'en')
+        ]);
 
-        // Run Hebrew search + English translation in PARALLEL (not sequential)
-        const hebrewSearch = this.serperCall(`${query} מתכון`, 'il', 'he');
-
-        const englishSearch: Promise<any> = isHebrewQuery
-            ? this.translateQueryToEnglish(query)
-                .then(en => this.serperCall(`${en} recipe`, 'us', 'en'))
-            : Promise.resolve(this.serperCall(`${query} recipe`, 'us', 'en')).then(p => p);
-
-        // Only 2 API calls instead of 4
-        const responses = await Promise.all([hebrewSearch, englishSearch]);
+        const responses = [hebrewResp, englishResp];
 
         // Merge organic results from all responses
         let allOrganic: any[] = [];
@@ -394,7 +369,7 @@ export class GoogleSearchService {
                 q: searchQuery,
                 kl: 'il-he'
             },
-            timeout: 8000,
+            timeout: 4000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             }

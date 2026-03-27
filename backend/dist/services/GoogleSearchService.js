@@ -45,6 +45,82 @@ const env_1 = require("../config/env");
 const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
 const HEBREW_REGEX = /[\u0590-\u05FF]/;
+// Domains that are not single-recipe pages
+const BLOCKED_DOMAINS = new Set([
+    'youtube.com', 'youtu.be', 'm.youtube.com',
+    'facebook.com', 'fb.com', 'm.facebook.com',
+    'instagram.com',
+    'tiktok.com',
+    'pinterest.com', 'pinterest.co.il', 'pin.it', 'pinterest.co.uk', 'pinterest.de', 'pinterest.fr',
+    'twitter.com', 'x.com',
+    'reddit.com',
+    'buzzfeed.com', 'tasty.co',
+    'amazon.com', 'ebay.com',
+    'walmart.com', 'target.com',
+]);
+// URL path patterns that indicate non-recipe pages
+const BLOCKED_PATH_PATTERNS = [
+    /\/gallery\//i,
+    /\/slideshow\//i,
+    /\/collection\//i,
+    /\/roundup\//i,
+    /\/best-.*-recipes/i,
+];
+// Listicle title patterns
+const LISTICLE_PATTERNS = [
+    // Starts with number: "15 Best Recipes", "9600 עוגיות"
+    /^\d[\d,.']*\s+(?:best|easy|quick|simple|delicious|amazing|top|great|favorite|favourite|popular|ways?|ideas?|types?|kinds?|recipes?|cookies?|cakes?|dishes?|meals?|foods?|snacks?|desserts?|soups?|salads?|breads?|drinks?|cocktails?|smoothies?|מתכוני|מתכונים|דרכים?|טיפים?|אופני|שיטות?|קל|פשוט|מנות?|סוגי)/i,
+    // "Top X", "Best X" with number
+    /^(?:top|best|the\s+best|the\s+top)\s+\d+/i,
+    // "The Best Cookie Recipes", "Best Chocolate Cake Recipes" (no number needed, plural only)
+    /^(?:the\s+)?best\s+\w[\w\s]{0,30}recipes\b/i,
+    // "65 of Our Best...", "10 of the Top..."
+    /^\d+\s+of\s+(?:our|the|my|these)\s+/i,
+    // "Ultimate Guide", "Complete List"
+    /^(?:the\s+)?(?:ultimate|complete|definitive|comprehensive)\s+/i,
+    // "X Popular Recipes", "X Easy Cookie Recipes"
+    /^\d+\s+(?:popular|classic|traditional|famous|iconic|must-try|crowd-pleasing)/i,
+    // Hebrew collection patterns: "אוסף מתכונים", "X מתכונים ש..."
+    /^(?:אוסף|רשימת|קולקציית)/i,
+    /\d+\s+מתכונים\s+(?:ש|ל|מ|ב)/i,
+    // "מגוון מתכונים" anywhere — collection pages
+    /מגוון\s+מתכונים/i,
+    // "Topic: מתכונים ל..." or "Topic - מתכונים ל..."
+    /^[^:–-]+[:–-]\s*מתכונים\s+ל/i,
+    // "מתכונים לעוגיות / לכל..." — plural recipe list
+    /^מתכונים\s+ל/i,
+    // "כל המתכונים ל..." / "כל מתכוני"
+    /^כל\s+(?:המתכונים|מתכוני)/i,
+    // "X מתכונים" at start — collection pages with count
+    /^\d+\s+מתכונים/i,
+    // Site index pages: "מתכוני X - כל המתכונים"
+    /כל\s+המתכונים/i,
+    // Archive / category pages: "קטגוריה:", "ארכיון:", "תגית:"
+    /^(?:קטגוריה|ארכיון|תגית|תג|category|tag|archive)\s*:/i,
+    // "X recipes for Y" collection titles
+    /^\d+\s+recipes?\s+for\b/i,
+    // "How to make X different ways"
+    /\bdifferent\s+ways?\b/i,
+    // "X ways to cook..."
+    /^\d+\s+ways?\s+(?:to|you)/i,
+];
+function isBlockedUrl(url) {
+    try {
+        const parsed = new URL(url);
+        const hostname = parsed.hostname.replace(/^www\./, '');
+        if (BLOCKED_DOMAINS.has(hostname))
+            return true;
+        // Check path patterns
+        return BLOCKED_PATH_PATTERNS.some(p => p.test(parsed.pathname));
+    }
+    catch {
+        return false;
+    }
+}
+function isListicle(title) {
+    const trimmed = title.trim();
+    return LISTICLE_PATTERNS.some(p => p.test(trimmed));
+}
 class GoogleSearchService {
     constructor() {
         this.parserService = new RecipeParserService_1.RecipeParserService();
@@ -218,27 +294,19 @@ class GoogleSearchService {
      * Free tier: 2,500 queries, no credit card required
      * Runs multiple search variations to get 20+ results.
      */
-    async searchWithSerper(query) {
-        const isHebrewQuery = HEBREW_REGEX.test(query);
-        // Build multiple search variations to get more results
-        const searchVariations = [
-            { q: `${query} מתכון`, gl: 'il', hl: 'he' },
-            { q: `${query} מתכון מנות`, gl: 'il', hl: 'he' },
-        ];
-        // If Hebrew query, also search English variations
-        if (isHebrewQuery) {
-            const englishQuery = query.replace(/[\u0590-\u05FF]/g, '').trim() || query;
-            searchVariations.push({ q: `${englishQuery} recipe`, gl: 'us', hl: 'en' }, { q: `${englishQuery} how to make`, gl: 'us', hl: 'en' });
-        }
-        else {
-            searchVariations.push({ q: `${query} recipe`, gl: 'us', hl: 'en' }, { q: `${query} homemade`, gl: 'us', hl: 'en' });
-        }
-        // Execute all searches in parallel
-        const searchPromises = searchVariations.map(variation => axios_1.default.post('https://google.serper.dev/search', { ...variation, num: 10 }, {
+    serperCall(q, gl, hl) {
+        return axios_1.default.post('https://google.serper.dev/search', { q, gl, hl, num: 10 }, {
             headers: { 'X-API-KEY': this.serperApiKey, 'Content-Type': 'application/json' },
-            timeout: 10000
-        }).catch(() => null));
-        const responses = await Promise.all(searchPromises);
+            timeout: 5000
+        }).catch(() => null);
+    }
+    async searchWithSerper(query) {
+        // Fire both calls immediately — no Gemini translation delay
+        const [hebrewResp, englishResp] = await Promise.all([
+            this.serperCall(`${query} מתכון`, 'il', 'he'),
+            this.serperCall(`${query} recipe`, 'us', 'en')
+        ]);
+        const responses = [hebrewResp, englishResp];
         // Merge organic results from all responses
         let allOrganic = [];
         for (const resp of responses) {
@@ -246,17 +314,20 @@ class GoogleSearchService {
                 allOrganic = allOrganic.concat(resp.data.organic);
             }
         }
-        // Deduplicate by link and score by relevance
+        // Deduplicate by link, filter blocked domains + listicles, score by relevance
         const seenUrls = new Set();
-        const scored = allOrganic
+        const results = allOrganic
             .filter((item) => {
             if (!item.link || seenUrls.has(item.link))
+                return false;
+            if (isBlockedUrl(item.link))
+                return false;
+            if (isListicle(item.title || ''))
                 return false;
             seenUrls.add(item.link);
             return true;
         })
             .map((item) => {
-            // Score by relevance to query
             const titleLower = (item.title || '').toLowerCase();
             const snippetLower = (item.snippet || '').toLowerCase();
             const queryLower = query.toLowerCase();
@@ -269,52 +340,25 @@ class GoogleSearchService {
                 score += 3;
             if (/\d+\s*(min|דקות|hour|שעות)/.test(item.snippet || ''))
                 score += 2;
-            return {
+            const snippet = item.snippet || '';
+            const extractedTime = this.extractTimeFromText(snippet) || this.extractTimeFromText(item.title);
+            const extractedIngredients = this.extractIngredientsFromSnippet(snippet);
+            const result = {
+                sourceUrl: item.link,
                 title: item.title,
-                url: item.link,
-                snippet: item.snippet || '',
                 sourceName: item.source || new URL(item.link).hostname,
-                score
-            };
-        })
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 25); // Top 25 results
-        // Enrich results with recipe parsing (with timeout)
-        const enriched = await Promise.allSettled(scored.map(async (item) => {
-            // Extract time from snippet/title
-            const extractedTime = this.extractTimeFromText(item.snippet) || this.extractTimeFromText(item.title);
-            // Extract ingredients from snippet
-            const extractedIngredients = this.extractIngredientsFromSnippet(item.snippet);
-            const basicResult = {
-                sourceUrl: item.url,
-                title: item.title,
-                sourceName: item.sourceName,
+                image: item.imageUrl || item.thumbnailUrl || undefined,
                 totalTime: extractedTime,
                 ingredientsPreview: extractedIngredients,
                 tags: []
             };
-            try {
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Parsing timeout')), 4000));
-                const parsePromise = this.parserService.extractRecipeSummary(item.url, item.title, item.sourceName);
-                const summary = await Promise.race([parsePromise, timeoutPromise]);
-                if (summary) {
-                    // Merge extracted data with parsed data
-                    return {
-                        ...summary,
-                        totalTime: summary.totalTime || extractedTime,
-                        ingredientsPreview: summary.ingredientsPreview?.length ? summary.ingredientsPreview : extractedIngredients
-                    };
-                }
-            }
-            catch {
-                // Parsing failed or timed out - use basic result
-            }
-            return basicResult;
-        }));
-        return enriched
-            .filter((result) => result.status === 'fulfilled')
-            .map((result) => result.value)
-            .filter((result) => result.title);
+            return { result, score };
+        })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 15)
+            .map((x) => x.result)
+            .filter((r) => r.title);
+        return results;
     }
     /**
      * Fallback search: DuckDuckGo HTML scraping
@@ -326,7 +370,7 @@ class GoogleSearchService {
                 q: searchQuery,
                 kl: 'il-he'
             },
-            timeout: 8000,
+            timeout: 4000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             }
@@ -350,31 +394,16 @@ class GoogleSearchService {
         if (rawResults.length === 0) {
             throw new Error('DuckDuckGo returned no results (possibly blocked)');
         }
-        const uniqueResults = rawResults.filter((item, index, items) => (items.findIndex((candidate) => candidate.url === item.url) === index)).slice(0, 8);
-        const enriched = await Promise.allSettled(uniqueResults.map(async (item) => {
-            const basicResult = {
-                sourceUrl: item.url,
-                title: item.title,
-                sourceName: item.sourceName,
-                ingredientsPreview: this.extractIngredientsFromSnippet(item.snippet),
-                tags: []
-            };
-            try {
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Parsing timeout')), 5000));
-                const parsePromise = this.parserService.extractRecipeSummary(item.url, item.title, item.sourceName);
-                const summary = await Promise.race([parsePromise, timeoutPromise]);
-                if (summary)
-                    return summary;
-            }
-            catch {
-                // Parsing failed or timed out – return basic result
-            }
-            return basicResult;
+        const uniqueResults = rawResults.filter((item, index, items) => (items.findIndex((candidate) => candidate.url === item.url) === index
+            && !isBlockedUrl(item.url)
+            && !isListicle(item.title))).slice(0, 8);
+        return uniqueResults.map((item) => ({
+            sourceUrl: item.url,
+            title: item.title,
+            sourceName: item.sourceName,
+            ingredientsPreview: this.extractIngredientsFromSnippet(item.snippet),
+            tags: []
         }));
-        return enriched
-            .filter((result) => result.status === 'fulfilled')
-            .map((result) => result.value)
-            .filter((result) => result.title);
     }
     /**
      * Main search method with fallback chain:
@@ -424,7 +453,29 @@ class GoogleSearchService {
                 console.error('[Search] Serper.dev failed, trying fallback:', error instanceof Error ? error.message : error);
             }
         }
-        // 2. Fall back to local mock recipes
+        // 2. Fall back to DuckDuckGo HTML scraping
+        try {
+            console.log(`[Search] Trying DuckDuckGo fallback for "${query}"`);
+            const ddgResults = await this.searchRecipePagesFromWeb(query);
+            if (ddgResults.length > 0) {
+                console.log(`[Search] DuckDuckGo returned ${ddgResults.length} results for "${query}"`);
+                try {
+                    await prisma.searchCache.upsert({
+                        where: { query: normalizedQuery },
+                        update: { resultsJson: JSON.stringify(ddgResults) },
+                        create: { query: normalizedQuery, resultsJson: JSON.stringify(ddgResults) }
+                    });
+                }
+                catch (cacheError) {
+                    console.error('[Search] Failed to save DDG search cache:', cacheError);
+                }
+                return ddgResults;
+            }
+        }
+        catch (ddgError) {
+            console.error('[Search] DuckDuckGo fallback failed, using mock recipes:', ddgError instanceof Error ? ddgError.message : ddgError);
+        }
+        // 3. Fall back to local mock recipes
         console.log(`[Search] Using local recipe catalog for "${query}"`);
         return this.searchMockRecipes(query);
     }

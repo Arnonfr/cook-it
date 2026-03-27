@@ -541,22 +541,67 @@ router.get('/community', async (req, res) => {
 router.get('/library/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
-        // Clean up orphaned SavedRecipes (from raw SQL deletions that bypass cascade)
-        await prisma.$executeRawUnsafe(
-            `DELETE FROM "SavedRecipe" WHERE "recipeId" NOT IN (SELECT id FROM "Recipe")`
-        );
 
+        // Skip orphan cleanup on every load — run it lazily in background so it
+        // doesn't block the response.
+        prisma.$executeRawUnsafe(
+            `DELETE FROM "SavedRecipe" WHERE "recipeId" NOT IN (SELECT id FROM "Recipe")`
+        ).catch(() => {});
+
+        // Only select the columns needed for list display — avoid loading full
+        // parsedJson for every recipe (can be 50–200 KB each).
         const saved = await prisma.savedRecipe.findMany({
             where: { userId },
-            include: { recipe: true },
+            select: {
+                recipe: {
+                    select: {
+                        id: true,
+                        sourceUrl: true,
+                        originalLanguage: true,
+                        parsedJson: true,
+                        translatedJson: true
+                    }
+                },
+                createdAt: true
+            },
             orderBy: { createdAt: 'desc' }
         });
 
-        const recipes = saved.map(s => ({
-            ...JSON.parse(s.recipe.parsedJson || '{}'),
-            id: s.recipe.id,
-            sourceUrl: s.recipe.sourceUrl
-        }));
+        const recipes = saved.map(s => {
+            const r = s.recipe;
+            // Try translated fields first (Hebrew), fall back to parsed
+            let displayData: any = {};
+            try {
+                if (r.translatedJson) {
+                    const trans = JSON.parse(r.translatedJson);
+                    if (trans.title && /[\u0590-\u05FF]/.test(trans.title)) {
+                        displayData = {
+                            title: trans.title,
+                            ingredients: trans.ingredients,
+                            steps: trans.steps
+                        };
+                    }
+                }
+            } catch {}
+            try {
+                const parsed = JSON.parse(r.parsedJson || '{}');
+                return {
+                    id: r.id,
+                    sourceUrl: r.sourceUrl,
+                    title: displayData.title || parsed.title,
+                    image: parsed.image,
+                    totalTime: parsed.totalTime,
+                    servings: parsed.servings,
+                    difficulty: parsed.difficulty,
+                    tags: parsed.tags || [],
+                    sourceName: parsed.sourceName,
+                    ingredientsPreview: (displayData.ingredients || parsed.ingredients)?.slice(0, 4)
+                        .map((i: any) => i.originalSpec || i.name) || []
+                };
+            } catch {
+                return { id: r.id, sourceUrl: r.sourceUrl, title: 'ללא שם' };
+            }
+        });
 
         res.json({ recipes });
     } catch (error) {

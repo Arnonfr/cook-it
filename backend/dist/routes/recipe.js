@@ -147,22 +147,8 @@ router.get('/search/unified', async (req, res) => {
             }
             catch { }
         }
-        // Batch-translate non-Hebrew web titles
-        try {
-            const webTitles = dedupedWeb.map(r => r.title);
-            const translated = await translationService.translateTitlesBatch(webTitles);
-            for (let i = 0; i < dedupedWeb.length; i++) {
-                const t = translated[i];
-                if (t.originalLanguage !== 'he' && t.hebrewTitle !== dedupedWeb[i].title) {
-                    dedupedWeb[i].originalTitle = dedupedWeb[i].title;
-                    dedupedWeb[i].title = t.hebrewTitle;
-                    dedupedWeb[i].originalLanguage = t.originalLanguage;
-                }
-            }
-        }
-        catch (translationError) {
-            console.error('[Search] Title translation failed:', translationError);
-        }
+        // Title translation removed from search for speed.
+        // Titles are translated when the full recipe is extracted.
         res.json({
             local,
             web: dedupedWeb,
@@ -172,6 +158,85 @@ router.get('/search/unified', async (req, res) => {
     catch (error) {
         console.error('[Search] Unified search failed:', error);
         res.status(500).json({ error: 'Search failed' });
+    }
+});
+// GET /api/enrich?url= — Quick summary for search card previews (no AI, DB cache first)
+router.get('/enrich', async (req, res) => {
+    const url = req.query.url;
+    if (!url)
+        return res.status(400).json({ error: 'url required' });
+    try {
+        // 1. Check DB cache — instant return if already parsed
+        const cached = await prisma.recipe.findUnique({ where: { sourceUrl: url } });
+        if (cached?.parsedJson && cached.parseStatus === 'parsed') {
+            const parsed = JSON.parse(cached.parsedJson);
+            let ingredients = parsed.ingredients?.slice(0, 5).map((i) => i.originalSpec || i.name) || [];
+            // Prefer translated ingredients if available and Hebrew
+            if (cached.translatedJson) {
+                try {
+                    const trans = JSON.parse(cached.translatedJson);
+                    if (trans.title && /[\u0590-\u05FF]/.test(trans.title)) {
+                        ingredients = trans.ingredients?.slice(0, 5).map((i) => i.originalSpec || i.name) || ingredients;
+                    }
+                }
+                catch { }
+            }
+            return res.json({
+                image: parsed.image,
+                ingredientsPreview: ingredients,
+                totalTime: parsed.totalTime,
+                servings: parsed.servings,
+                cached: true
+            });
+        }
+        // 2. Quick fetch + JSON-LD extraction (no AI, 6s timeout)
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 6000);
+        let html = '';
+        try {
+            const response = await fetch(url, {
+                signal: controller.signal,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml',
+                    'Accept-Language': 'he,en;q=0.9',
+                }
+            });
+            clearTimeout(timer);
+            if (!response.ok)
+                return res.json({});
+            html = await response.text();
+        }
+        catch {
+            clearTimeout(timer);
+            return res.json({});
+        }
+        // Try JSON-LD
+        const ldMatch = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i);
+        if (ldMatch) {
+            try {
+                let ld = JSON.parse(ldMatch[1]);
+                if (Array.isArray(ld))
+                    ld = ld.find((x) => x?.['@type'] === 'Recipe' || (Array.isArray(x?.['@type']) && x['@type'].includes('Recipe')));
+                if (ld?.['@type'] === 'Recipe' || (Array.isArray(ld?.['@type']) && ld['@type'].includes('Recipe'))) {
+                    const imgRaw = ld.image;
+                    const image = Array.isArray(imgRaw) ? (typeof imgRaw[0] === 'string' ? imgRaw[0] : imgRaw[0]?.url)
+                        : (typeof imgRaw === 'string' ? imgRaw : imgRaw?.url);
+                    const totalTime = ld.totalTime || ld.cookTime;
+                    const servings = parseInt(String(ld.recipeYield || '')) || undefined;
+                    const ingredients = Array.isArray(ld.recipeIngredient) ? ld.recipeIngredient.slice(0, 5) : [];
+                    return res.json({ image, ingredientsPreview: ingredients, totalTime, servings });
+                }
+            }
+            catch { }
+        }
+        // og:image fallback
+        const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1]
+            ?? html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)?.[1];
+        return res.json({ image: ogImage });
+    }
+    catch {
+        return res.json({});
     }
 });
 // GET /api/search?q=lasagna
@@ -196,6 +261,53 @@ router.get('/parse', async (req, res) => {
         if (!url) {
             return res.status(400).json({ error: 'URL parameter is required' });
         }
+        // Check DB cache first — if recipe was already extracted, return immediately
+        try {
+            const cached = await prisma.recipe.findUnique({ where: { sourceUrl: url } });
+            if (cached?.parsedJson && cached.parseStatus === 'parsed') {
+                const parsedRecipe = JSON.parse(cached.parsedJson);
+                let finalRecipe = parsedRecipe;
+                // Apply stored translation if available and Hebrew
+                if (cached.translatedJson) {
+                    const translation = JSON.parse(cached.translatedJson);
+                    if (translation.title && translationService.isHebrew(translation.title)) {
+                        finalRecipe = {
+                            ...parsedRecipe,
+                            title: translation.title,
+                            ingredients: translation.ingredients || parsedRecipe.ingredients,
+                            steps: translation.steps || parsedRecipe.steps,
+                            originalTitle: parsedRecipe.title,
+                            originalLanguage: cached.originalLanguage || 'en',
+                            originalRecipe: {
+                                title: parsedRecipe.title,
+                                ingredients: parsedRecipe.ingredients,
+                                steps: parsedRecipe.steps
+                            }
+                        };
+                    }
+                }
+                // Still link to user if userId provided
+                if (userId) {
+                    try {
+                        let user = await prisma.user.findUnique({ where: { id: userId } });
+                        if (!user) {
+                            user = await prisma.user.create({ data: { id: userId, email: `user-${userId}@example.com` } });
+                        }
+                        await prisma.savedRecipe.upsert({
+                            where: { userId_recipeId: { userId, recipeId: cached.id } },
+                            update: {},
+                            create: { userId, recipeId: cached.id }
+                        });
+                    }
+                    catch { }
+                }
+                console.log(`[Parse] Returning cached recipe for ${url}`);
+                return res.json({ recipe: { ...finalRecipe, id: cached.id, sourceUrl: url } });
+            }
+        }
+        catch (cacheErr) {
+            console.error('[Parse] Cache check failed:', cacheErr);
+        }
         // MVP: In-memory parsing without caching yet for immediate feedback
         const recipe = await parserService.parseUrl(url);
         // Detect language and translate if needed
@@ -207,7 +319,7 @@ router.get('/parse', async (req, res) => {
             const existing = await prisma.recipe.findUnique({ where: { sourceUrl: url } });
             if (existing?.translatedJson) {
                 const cached = JSON.parse(existing.translatedJson);
-                if (cached.title) {
+                if (cached.title && translationService.isHebrew(cached.title)) {
                     finalRecipe = {
                         ...recipe,
                         originalTitle: recipe.title,
@@ -407,18 +519,64 @@ router.get('/community', async (req, res) => {
 router.get('/library/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
-        // Clean up orphaned SavedRecipes (from raw SQL deletions that bypass cascade)
-        await prisma.$executeRawUnsafe(`DELETE FROM SavedRecipe WHERE recipeId NOT IN (SELECT id FROM Recipe)`);
+        // Skip orphan cleanup on every load — run it lazily in background so it
+        // doesn't block the response.
+        prisma.$executeRawUnsafe(`DELETE FROM "SavedRecipe" WHERE "recipeId" NOT IN (SELECT id FROM "Recipe")`).catch(() => { });
+        // Only select the columns needed for list display — avoid loading full
+        // parsedJson for every recipe (can be 50–200 KB each).
         const saved = await prisma.savedRecipe.findMany({
             where: { userId },
-            include: { recipe: true },
+            select: {
+                recipe: {
+                    select: {
+                        id: true,
+                        sourceUrl: true,
+                        originalLanguage: true,
+                        parsedJson: true,
+                        translatedJson: true
+                    }
+                },
+                createdAt: true
+            },
             orderBy: { createdAt: 'desc' }
         });
-        const recipes = saved.map(s => ({
-            ...JSON.parse(s.recipe.parsedJson || '{}'),
-            id: s.recipe.id,
-            sourceUrl: s.recipe.sourceUrl
-        }));
+        const recipes = saved.map(s => {
+            const r = s.recipe;
+            // Try translated fields first (Hebrew), fall back to parsed
+            let displayData = {};
+            try {
+                if (r.translatedJson) {
+                    const trans = JSON.parse(r.translatedJson);
+                    if (trans.title && /[\u0590-\u05FF]/.test(trans.title)) {
+                        displayData = {
+                            title: trans.title,
+                            ingredients: trans.ingredients,
+                            steps: trans.steps
+                        };
+                    }
+                }
+            }
+            catch { }
+            try {
+                const parsed = JSON.parse(r.parsedJson || '{}');
+                return {
+                    id: r.id,
+                    sourceUrl: r.sourceUrl,
+                    title: displayData.title || parsed.title,
+                    image: parsed.image,
+                    totalTime: parsed.totalTime,
+                    servings: parsed.servings,
+                    difficulty: parsed.difficulty,
+                    tags: parsed.tags || [],
+                    sourceName: parsed.sourceName,
+                    ingredientsPreview: (displayData.ingredients || parsed.ingredients)?.slice(0, 4)
+                        .map((i) => i.originalSpec || i.name) || []
+                };
+            }
+            catch {
+                return { id: r.id, sourceUrl: r.sourceUrl, title: 'ללא שם' };
+            }
+        });
         res.json({ recipes });
     }
     catch (error) {
