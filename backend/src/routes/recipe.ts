@@ -121,8 +121,15 @@ router.get('/search/unified', async (req, res) => {
     try {
         const q = req.query.q as string;
         const userId = req.query.userId as string;
+        const localOnly = req.query.localOnly === 'true';
         if (!q) {
             return res.status(400).json({ error: 'Query parameter "q" is required' });
+        }
+
+        // localOnly mode: return DB results immediately without web search
+        if (localOnly) {
+            const local = await searchService.searchLocal(q).catch(() => []);
+            return res.json({ local, web: [], webTotal: 0 });
         }
 
         // Run local and web search in parallel

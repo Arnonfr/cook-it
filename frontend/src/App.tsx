@@ -1,4 +1,5 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useState, useRef, lazy, Suspense } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { App as CapApp } from '@capacitor/app';
 import {
   ArrowLeft,
@@ -29,7 +30,8 @@ import {
   AlertCircle,
   RefreshCw
 } from 'lucide-react';
-import { fetchCommunityRecipes, fetchLibrary, getIngredientImages, parseRecipe, searchUnified, saveRecipe, fetchSettings, updateSettings, warmUpBackend, enrichRecipe } from './api';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { fetchCommunityRecipes, fetchLibrary, getIngredientImages, parseRecipe, searchUnified, searchLocalOnly, saveRecipe, fetchSettings, updateSettings, warmUpBackend, enrichRecipe } from './api';
 import type { SettingsResponse, EnrichmentData } from './api';
 import { ShareToast } from './components/ShareToast';
 import { SkeletonHero } from './components/Skeleton';
@@ -540,7 +542,7 @@ function LibraryView({ recipes, onOpen }: { recipes: ParsedRecipe[]; onOpen: (r:
           <article
             key={recipe.sourceUrl || i}
             onClick={() => onOpen(recipe)}
-            className="flex gap-3 cursor-pointer rounded-[18px] border border-slate-200 bg-white p-3 shadow-sm hover:shadow-md transition-all"
+            className="flex gap-3 cursor-pointer rounded-[18px] border border-slate-200 bg-white p-3 shadow-sm hover:shadow-md transition-all active:scale-[0.96] active:opacity-80"
           >
             <img
               src={recipe.image || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=400&q=70'}
@@ -736,7 +738,7 @@ const CommunityCard = ({
   <button
     type="button"
     onClick={onOpen}
-    className="w-[calc(50vw-28px)] max-w-[190px] shrink-0 overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-sm text-right transition-shadow hover:shadow-md"
+    className="w-[calc(50vw-28px)] max-w-[190px] shrink-0 overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-sm text-right transition-shadow hover:shadow-md active:scale-[0.96] active:opacity-80 transition-transform duration-75"
   >
     <img
       src={recipe.image || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=600&q=80'}
@@ -787,7 +789,7 @@ const RecipeListRow = ({
 
   return (
     <div
-      className="relative rounded-[18px] border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.05)] overflow-hidden cursor-pointer hover:border-[#2f6d63]/30 hover:shadow-md transition-all"
+      className="relative rounded-[18px] border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.05)] overflow-hidden cursor-pointer hover:border-[#2f6d63]/30 hover:shadow-md transition-all active:scale-[0.96] active:opacity-80"
       onClick={onOpen}
     >
       {/* Backdrop to close 3-dot menu */}
@@ -835,6 +837,7 @@ const RecipeListRow = ({
                 onClick={async (e) => {
                   e.stopPropagation();
                   if (saved) return;
+                  Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
                   setSaving(true);
                   await onSave(recipe);
                   setSaved(true);
@@ -905,14 +908,43 @@ const RecipeListRow = ({
   );
 };
 
+const pageVariants = {
+  initial: (dir: number) => ({
+    x: dir > 0 ? '60%' : '-60%',
+    opacity: 0,
+    scale: 0.95,
+  }),
+  animate: {
+    x: 0, opacity: 1, scale: 1,
+    transition: { type: 'spring' as const, stiffness: 380, damping: 32, mass: 0.8 },
+  },
+  exit: (dir: number) => ({
+    x: dir > 0 ? '-30%' : '30%',
+    opacity: 0, scale: 0.95,
+    transition: { duration: 0.18, ease: 'easeIn' as const },
+  }),
+};
+
+const SkeletonRow = () => (
+  <div className="rounded-[18px] border border-slate-100 bg-white p-4 animate-pulse">
+    <div className="h-4 bg-slate-100 rounded w-3/4 mb-2" />
+    <div className="h-3 bg-slate-100 rounded w-1/2 mb-3" />
+    <div className="h-3 bg-slate-100 rounded w-1/3" />
+  </div>
+);
+
 /* ─── Main App ─── */
 export const App = () => {
   const [view, setView] = useState<View>('home');
   const [previousView, setPreviousView] = useState<View>('home');
+  const [direction, setDirection] = useState(1);
+  const viewHistory = useRef<string[]>(['home']);
   const [query, setQuery] = useState('');
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [fallbackUrl, setFallbackUrl] = useState('');
   const [selectedRecipe, setSelectedRecipe] = useState<ParsedRecipe | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importUrl, setImportUrl] = useState('');
@@ -933,6 +965,18 @@ export const App = () => {
   const [blockedDomains, setBlockedDomains] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('blocked_domains') || '[]')); } catch { return new Set(); }
   });
+
+  const navigateTo = (newView: View) => {
+    const currentIndex = viewHistory.current.indexOf(newView);
+    if (currentIndex !== -1) {
+      setDirection(-1);
+      viewHistory.current = viewHistory.current.slice(0, currentIndex + 1);
+    } else {
+      setDirection(1);
+      viewHistory.current = [...viewHistory.current, newView];
+    }
+    setView(newView);
+  };
 
   const handleBlockDomain = (domain: string) => {
     setBlockedDomains(prev => {
@@ -1085,39 +1129,64 @@ export const App = () => {
     const targetQuery = (forcedQuery ?? query).trim();
     if (!targetQuery) return;
 
-    setView('search');
-    setLoading(true);
+    navigateTo('search');
     setSearchError('');
     setShowAllWeb(false);
-    setEnrichments({});
+    setIsSearching(true);
+    // Don't clear results immediately — keep previous results visible while new ones load
 
     try {
-      const data = await searchUnified(targetQuery, MOCK_USER_ID);
-      setLocalResults(data.local);
-      setWebResults(data.web);
+      // Fire local-only query first for instant results, web query in parallel
+      const localPromise = searchLocalOnly(targetQuery).catch(() => ({ local: [], web: [], webTotal: 0 }));
+      const webPromise = searchUnified(targetQuery, MOCK_USER_ID).catch(() => null);
 
-      // Background enrichment — fire for all web results, update cards as each resolves
-      const toEnrich = data.web.slice(0, 15);
-      toEnrich.forEach(result => {
-        enrichRecipe(result.sourceUrl)
-          .then(enrichment => {
-            if (enrichment.image || enrichment.ingredientsPreview?.length) {
-              setEnrichments(prev => ({ ...prev, [result.sourceUrl]: enrichment }));
-            }
-          })
-          .catch(() => {}); // silent — never block the UI
-      });
+      // Show local results immediately as they arrive
+      const localData = await localPromise;
+      if (localData.local?.length) {
+        setLocalResults(localData.local);
+        setWebResults([]); // clear stale web results while new web results load
+      }
+
+      // Then update with full results when web arrives
+      const fullData = await webPromise;
+      if (fullData) {
+        setLocalResults(fullData.local ?? []);
+        setWebResults(fullData.web ?? []);
+
+        // Background enrichment — fire for all web results, update cards as each resolves
+        const toEnrich = fullData.web?.slice(0, 15) ?? [];
+        toEnrich.forEach((result: SearchResult) => {
+          enrichRecipe(result.sourceUrl)
+            .then(enrichment => {
+              if (enrichment.image || enrichment.ingredientsPreview?.length) {
+                setEnrichments(prev => ({ ...prev, [result.sourceUrl]: enrichment }));
+              }
+            })
+            .catch(() => {}); // silent — never block the UI
+        });
+      }
     } catch (error) {
       console.error('Search failed', error);
       setSearchError('לא הצלחתי להביא תוצאות כרגע. נסה שוב בעוד רגע או חפש ניסוח אחר.');
       setLocalResults([]);
       setWebResults([]);
     } finally {
+      setIsSearching(false);
       setLoading(false);
     }
   };
 
+  const handleQueryChange = (newQuery: string) => {
+    setQuery(newQuery);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (newQuery.trim().length < 2) return;
+    searchDebounceRef.current = setTimeout(() => {
+      void handleSearch(newQuery);
+    }, 350);
+  };
+
   const handleExtractRecipe = async (url?: string) => {
+    Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
     const targetUrl = (url || importUrl).trim();
     if (!targetUrl) return;
 
@@ -1127,7 +1196,7 @@ export const App = () => {
     setIsExtracting(true);
     setIsImportModalOpen(false);
     setImportUrl('');
-    setView('fallback');
+    navigateTo('fallback');
 
     // Try up to 2 times (Render free tier cold start can cause first request to fail)
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -1137,7 +1206,7 @@ export const App = () => {
         void loadLibrary();
         void loadCommunity();
         setIsExtracting(false);
-        setView('recipe');
+        navigateTo('recipe');
         return;
       } catch (error) {
         console.error(`Extraction attempt ${attempt + 1} failed`, error);
@@ -1153,6 +1222,7 @@ export const App = () => {
   };
 
   const handleOpenParsedRecipe = async (recipe: ParsedRecipe) => {
+    Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
     const isHebrew = /[\u0590-\u05FF]/.test(recipe.title || '');
     // If not Hebrew and we have a URL, re-fetch to get translated version
     if (!isHebrew && recipe.sourceUrl) {
@@ -1169,7 +1239,7 @@ export const App = () => {
       setSelectedRecipe(recipe);
     }
     setPreviousView(view);
-    setView('recipe');
+    navigateTo('recipe');
   };
 
   /* ── Full-screen views ── */
@@ -1208,8 +1278,8 @@ export const App = () => {
     return (
       <Suspense fallback={<SkeletonHero />}>
         <RecipeResult 
-          recipe={selectedRecipe} 
-          onBack={() => setView(previousView)} 
+          recipe={selectedRecipe}
+          onBack={() => { Haptics.impact({ style: ImpactStyle.Light }).catch(() => {}); navigateTo(previousView); }}
           onSave={handleSaveRecipe}
         />
       </Suspense>
@@ -1223,7 +1293,7 @@ export const App = () => {
           <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={() => { setIsExtracting(false); setView(previousView); }}
+              onClick={() => { setIsExtracting(false); navigateTo(previousView); }}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition-colors hover:bg-slate-50"
             >
               <ArrowLeft size={20} />
@@ -1290,22 +1360,46 @@ export const App = () => {
               </button>
               <input
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => handleQueryChange(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault();
+                    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
                     void handleSearch();
                   }
                 }}
                 placeholder="סוג אוכל, שם מתכון..."
                 className="h-full flex-1 bg-transparent px-2 text-base font-medium text-slate-900 outline-none placeholder:text-slate-400"
               />
+              {/* Inline status indicators — spinner while searching, clear button when query not empty */}
+              <div className="flex items-center gap-1 pl-3">
+                {isSearching ? (
+                  <Loader2 size={16} className="animate-spin text-[#2f6d63] shrink-0" />
+                ) : query.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery('');
+                      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                    }}
+                    className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-slate-300 transition-colors shrink-0"
+                    aria-label="נקה חיפוש"
+                  >
+                    <X size={11} strokeWidth={2.5} />
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
         </section>
 
+        {/* ─── Animated Views Container ─── */}
+        <div style={{ position: 'relative', overflow: 'hidden', minHeight: '60vh' }}>
+        <AnimatePresence mode="wait" custom={direction}>
+
         {/* ─── HOME VIEW ─── */}
         {view === 'home' && (
+          <motion.div key="home" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflow: 'hidden auto' }}>
           <>
             {/* ─── Quick Category Chips - Only on Home ─── */}
             <section className="mt-7">
@@ -1317,7 +1411,7 @@ export const App = () => {
                     onClick={() => {
                       // Search in local library only
                       setQuery(category.label);
-                      setView('search');
+                      navigateTo('search');
                       // TODO: Implement local library search
                     }}
                     className="min-w-[88px] shrink-0"
@@ -1376,7 +1470,7 @@ export const App = () => {
                   <article
                     key={recipe.sourceUrl || recipe.title}
                     onClick={() => handleOpenParsedRecipe(recipe)}
-                    className="flex gap-3 cursor-pointer hover:border-[#2f6d63]/30 hover:shadow-md transition-all rounded-[18px] border border-slate-200 bg-white p-3 shadow-[0_8px_20px_rgba(15,23,42,0.05)]"
+                    className="flex gap-3 cursor-pointer hover:border-[#2f6d63]/30 hover:shadow-md transition-all rounded-[18px] border border-slate-200 bg-white p-3 shadow-[0_8px_20px_rgba(15,23,42,0.05)] active:scale-[0.96] active:opacity-80"
                   >
                     <img
                       src={recipe.image || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80'}
@@ -1399,10 +1493,12 @@ export const App = () => {
             )}
           </section>
           </>
+          </motion.div>
         )}
 
         {/* ─── SEARCH VIEW ─── */}
         {view === 'search' && (
+          <motion.div key="search" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflow: 'hidden auto' }}>
           <section className="relative mt-9">
             {/* Loading overlay when extracting a recipe */}
             {isExtracting && (
@@ -1420,18 +1516,17 @@ export const App = () => {
               </div>
             )}
 
-            {loading ? (
-              <div className="flex min-h-[280px] flex-col items-center justify-center rounded-[30px] border border-slate-200 bg-white">
-                <Loader2 className="mb-4 animate-spin text-[#2f6d63]" size={34} />
-                <p className="text-base font-bold text-slate-900">מחפש מתכונים</p>
-              </div>
-            ) : (localResults.length === 0 && webResults.length === 0) ? (
+            {(!isSearching && localResults.length === 0 && webResults.length === 0) ? (
               <div className="rounded-[22px] border border-slate-200 bg-white px-5 py-14 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
                   <BookOpen size={22} />
                 </div>
                 <h3 className="mt-4 text-sm font-normal text-slate-500">אין כרגע תוצאות</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-500">נסה חיפוש אחר או ייבוא מ־URL.</p>
+              </div>
+            ) : (isSearching && localResults.length === 0 && webResults.length === 0) ? (
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
               </div>
             ) : (
               <>
@@ -1484,62 +1579,82 @@ export const App = () => {
               </>
             )}
           </section>
+          </motion.div>
         )}
 
         {/* ─── LIBRARY VIEW ─── */}
         {view === 'library' && (
+          <motion.div key="library" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflow: 'hidden auto' }}>
           <LibraryView
             recipes={libraryRecipes}
             onOpen={handleOpenParsedRecipe}
-            onBack={() => setView('home')}
+            onBack={() => navigateTo('home')}
           />
+          </motion.div>
         )}
 
         {/* ─── PROFILE VIEW ─── */}
         {view === 'profile' && (
+          <motion.div key="profile" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflow: 'hidden auto' }}>
           <section className="mt-9">
             <ProfileView
-                onBack={() => setView('home')}
+                onBack={() => navigateTo('home')}
                 keepScreenOn={keepScreenOn}
                 onKeepScreenOnChange={(v) => { setKeepScreenOn(v); localStorage.setItem('keep_screen_on', v.toString()); }}
               />
           </section>
+          </motion.div>
         )}
+
+        </AnimatePresence>
+        </div>
 
         {/* ─── Bottom Navigation (flipped: Home leftmost, Search middle, Profile rightmost) ─── */}
         <nav className="fixed bottom-5 left-1/2 z-40 flex w-[calc(100%-32px)] max-w-[398px] -translate-x-1/2 items-center justify-around rounded-[24px] border border-white/70 bg-white/80 px-6 py-3 shadow-[0_18px_40px_rgba(15,23,42,0.12)] backdrop-blur-xl">
           <button
-            className={`flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors ${view === 'home' ? 'text-[#2f6d63] bg-[#e6fcf6]' : 'text-slate-600 hover:bg-slate-100'}`}
+            className={`relative flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors active:scale-[0.96] active:opacity-80 transition-transform duration-75 ${view === 'home' ? 'text-[#2f6d63]' : 'text-slate-600 hover:bg-slate-100'}`}
             onClick={() => {
               if (view === 'home') window.scrollTo({ top: 0, behavior: 'smooth' });
-              else { setView('home'); void loadCommunity(); void loadLibrary(); }
+              else { navigateTo('home'); void loadCommunity(); void loadLibrary(); }
             }}
             title="בית"
           >
-            <Home size={24} />
+            {view === 'home' && (
+              <motion.div layoutId="nav-pill" className="absolute inset-0 rounded-2xl bg-blue-50" style={{ zIndex: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
+            )}
+            <span className="relative z-10"><Home size={24} /></span>
           </button>
           <button
-            className={`flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors ${view === 'search' ? 'text-[#2f6d63] bg-[#e6fcf6]' : 'text-slate-600 hover:bg-slate-100'}`}
+            className={`relative flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors active:scale-[0.96] active:opacity-80 transition-transform duration-75 ${view === 'search' ? 'text-[#2f6d63]' : 'text-slate-600 hover:bg-slate-100'}`}
             onClick={() => {
-              if (view !== 'search') setView('search');
+              if (view !== 'search') navigateTo('search');
             }}
             title="חיפוש"
           >
-            <Search size={24} />
+            {view === 'search' && (
+              <motion.div layoutId="nav-pill" className="absolute inset-0 rounded-2xl bg-blue-50" style={{ zIndex: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
+            )}
+            <span className="relative z-10"><Search size={24} /></span>
           </button>
           <button
-            className={`flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors ${view === 'library' ? 'text-[#2f6d63] bg-[#e6fcf6]' : 'text-slate-600 hover:bg-slate-100'}`}
-            onClick={() => setView('library')}
+            className={`relative flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors active:scale-[0.96] active:opacity-80 transition-transform duration-75 ${view === 'library' ? 'text-[#2f6d63]' : 'text-slate-600 hover:bg-slate-100'}`}
+            onClick={() => navigateTo('library')}
             title="ספרייה"
           >
-            <BookOpen size={24} />
+            {view === 'library' && (
+              <motion.div layoutId="nav-pill" className="absolute inset-0 rounded-2xl bg-blue-50" style={{ zIndex: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
+            )}
+            <span className="relative z-10"><BookOpen size={24} /></span>
           </button>
           <button
-            className={`flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors ${view === 'profile' ? 'text-[#2f6d63] bg-[#e6fcf6]' : 'text-slate-600 hover:bg-slate-100'}`}
-            onClick={() => { setPreviousView(view); setView('profile'); }}
+            className={`relative flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors active:scale-[0.96] active:opacity-80 transition-transform duration-75 ${view === 'profile' ? 'text-[#2f6d63]' : 'text-slate-600 hover:bg-slate-100'}`}
+            onClick={() => { setPreviousView(view); navigateTo('profile'); }}
             title="פרופיל"
           >
-            <User size={24} />
+            {view === 'profile' && (
+              <motion.div layoutId="nav-pill" className="absolute inset-0 rounded-2xl bg-blue-50" style={{ zIndex: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
+            )}
+            <span className="relative z-10"><User size={24} /></span>
           </button>
         </nav>
 

@@ -85,6 +85,10 @@ export const searchUnified = async (query: string, userId?: string): Promise<Uni
   return await nativeRequest('GET', '/search/unified', { q: query, userId });
 };
 
+export const searchLocalOnly = async (query: string): Promise<UnifiedSearchResponse> => {
+  return await nativeRequest('GET', '/search/unified', { q: query, localOnly: 'true' });
+};
+
 export const parseRecipe = async (url: string, userId?: string): Promise<ParsedRecipe> => {
   const data = await nativeRequest('GET', '/parse', { url, userId });
   return data.recipe;

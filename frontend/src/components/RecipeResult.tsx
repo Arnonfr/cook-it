@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import {
     AlarmClock,
     ArrowRight,
@@ -625,6 +626,10 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
     const [targetPanSize, setTargetPanSize] = useState('24');
     const [showOriginal, setShowOriginal] = useState(false);
 
+    const dragX = useMotionValue(0);
+    const bgOpacity = useTransform(dragX, [0, 200], [0, 0.15]);
+    const edgeOpacity = useTransform(dragX, [0, 60], [0, 1]);
+
     const handleShare = async () => {
         const shareUrl = recipe.sourceUrl || window.location.href;
         if (navigator.share) {
@@ -763,7 +768,30 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
     }, [recipe.sourceUrl]);
 
     return (
-        <div className="min-h-screen bg-white">
+        <motion.div
+            className="min-h-screen bg-white relative"
+            style={{ x: dragX }}
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={{ left: 0, right: 0.4 }}
+            onDragEnd={(_, info) => {
+                if (info.offset.x > 120 || info.velocity.x > 500) {
+                    animate(dragX, window.innerWidth, { duration: 0.2 }).then(onBack);
+                } else {
+                    animate(dragX, 0, { type: 'spring', stiffness: 400, damping: 35 });
+                }
+            }}
+        >
+            {/* Drag hint — left-edge indicator */}
+            <motion.div
+                className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400 rounded-r"
+                style={{ opacity: edgeOpacity }}
+            />
+            {/* Background drag tint */}
+            <motion.div
+                className="pointer-events-none absolute inset-0 bg-blue-400"
+                style={{ opacity: bgOpacity }}
+            />
             {/* HERO HEADER */}
             <header className="relative w-full h-[35vh] min-h-[300px] max-h-[480px] bg-slate-900 overflow-hidden">
                 <img
@@ -1207,7 +1235,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                 onClose={() => setIsSourceDrawerOpen(false)}
                 url={recipe.sourceUrl || ''}
             />
-        </div>
+        </motion.div>
     );
 };
 
