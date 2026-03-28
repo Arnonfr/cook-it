@@ -943,7 +943,6 @@ export const App = () => {
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [fallbackUrl, setFallbackUrl] = useState('');
   const [selectedRecipe, setSelectedRecipe] = useState<ParsedRecipe | null>(null);
-  const [loading, setLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -1172,7 +1171,6 @@ export const App = () => {
       setWebResults([]);
     } finally {
       setIsSearching(false);
-      setLoading(false);
     }
   };
 
