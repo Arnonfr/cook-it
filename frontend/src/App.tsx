@@ -1274,19 +1274,30 @@ export const App = () => {
 
   if (view === 'recipe' && selectedRecipe) {
     return (
-      <Suspense fallback={<SkeletonHero />}>
-        <RecipeResult 
-          recipe={selectedRecipe}
-          onBack={() => { Haptics.impact({ style: ImpactStyle.Light }).catch(() => {}); navigateTo(previousView); }}
-          onSave={handleSaveRecipe}
-        />
-      </Suspense>
+      <div className="fixed inset-0 overflow-hidden bg-[#F0F4F8]">
+        <div className="mx-auto h-full w-full max-w-[430px]" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <AnimatePresence mode="wait">
+            <motion.div key="recipe-view" initial={{ x: '100%', opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: '100%', opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 32 }} style={{ position: 'absolute', inset: 0 }}>
+              <Suspense fallback={<SkeletonHero />}>
+                <RecipeResult
+                  recipe={selectedRecipe}
+                  onBack={() => { Haptics.impact({ style: ImpactStyle.Light }).catch(() => {}); navigateTo(previousView); }}
+                  onSave={handleSaveRecipe}
+                />
+              </Suspense>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
     );
   }
 
   if (view === 'fallback' && fallbackUrl) {
     return (
-      <div className="flex h-[100dvh] flex-col bg-[#f3f2f1]">
+      <div className="fixed inset-0 overflow-hidden bg-[#f3f2f1]">
+      <AnimatePresence mode="wait">
+      <motion.div key="fallback-view" initial={{ x: '100%', opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: '100%', opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 32 }} style={{ position: 'absolute', inset: 0 }}>
+      <div className="flex h-full flex-col bg-[#f3f2f1]" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <header className="flex h-16 shrink-0 items-center justify-between bg-white px-4 shadow-sm md:px-6">
           <div className="flex items-center gap-4">
             <button
@@ -1334,15 +1345,18 @@ export const App = () => {
           )}
         </div>
       </div>
+      </motion.div>
+      </AnimatePresence>
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8]">
-      <div className="mx-auto min-h-screen w-full max-w-[430px] px-4 pb-40 pt-6">
+    <div className="fixed inset-0 overflow-hidden bg-[#F0F4F8]">
+      <div className="mx-auto h-full w-full max-w-[430px] flex flex-col" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
 
         {/* ─── Search Bar ─── */}
-        <section className="mt-8">
+        <section className="px-4 pt-3 pb-2 flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="flex h-13 flex-1 items-center rounded-[18px] border border-slate-200 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
               <button
@@ -1392,12 +1406,12 @@ export const App = () => {
         </section>
 
         {/* ─── Animated Views Container ─── */}
-        <div style={{ position: 'relative', overflow: 'hidden', minHeight: '60vh' }}>
+        <div style={{ position: 'relative', overflow: 'hidden', flex: 1 }}>
         <AnimatePresence mode="wait" custom={direction}>
 
         {/* ─── HOME VIEW ─── */}
         {view === 'home' && (
-          <motion.div key="home" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflow: 'hidden auto' }}>
+          <motion.div key="home" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '96px', paddingLeft: '16px', paddingRight: '16px' }}>
           <>
             {/* ─── Quick Category Chips - Only on Home ─── */}
             <section className="mt-7">
@@ -1496,7 +1510,7 @@ export const App = () => {
 
         {/* ─── SEARCH VIEW ─── */}
         {view === 'search' && (
-          <motion.div key="search" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflow: 'hidden auto' }}>
+          <motion.div key="search" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '96px', paddingLeft: '16px', paddingRight: '16px' }}>
           <section className="relative mt-9">
             {/* Loading overlay when extracting a recipe */}
             {isExtracting && (
@@ -1582,7 +1596,7 @@ export const App = () => {
 
         {/* ─── LIBRARY VIEW ─── */}
         {view === 'library' && (
-          <motion.div key="library" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflow: 'hidden auto' }}>
+          <motion.div key="library" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '96px', paddingLeft: '16px', paddingRight: '16px' }}>
           <LibraryView
             recipes={libraryRecipes}
             onOpen={handleOpenParsedRecipe}
@@ -1593,7 +1607,7 @@ export const App = () => {
 
         {/* ─── PROFILE VIEW ─── */}
         {view === 'profile' && (
-          <motion.div key="profile" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflow: 'hidden auto' }}>
+          <motion.div key="profile" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '96px', paddingLeft: '16px', paddingRight: '16px' }}>
           <section className="mt-9">
             <ProfileView
                 onBack={() => navigateTo('home')}
