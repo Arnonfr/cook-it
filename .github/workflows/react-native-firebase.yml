@@ -20,13 +20,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ─── Node.js ───────────────────────────────────────────────────────────
+      # ─── Node.js (no lock file cache — first run generates it) ────────────
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: mobile/package-lock.json
+
+      # ─── Cache node_modules by package.json hash ──────────────────────────
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: mobile/node_modules
+          key: ${{ runner.os }}-mobile-${{ hashFiles('mobile/package.json') }}
+          restore-keys: ${{ runner.os }}-mobile-
 
       # ─── Java (Android build) ──────────────────────────────────────────────
       - name: Setup JDK 21
@@ -42,7 +48,7 @@ jobs:
       # ─── Install deps ──────────────────────────────────────────────────────
       - name: Install mobile dependencies
         working-directory: mobile
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       # ─── Expo Prebuild ─────────────────────────────────────────────────────
       - name: Expo prebuild (generate Android project)
@@ -50,6 +56,16 @@ jobs:
         run: npx expo prebuild --platform android --clean
         env:
           EXPO_NO_TELEMETRY: 1
+
+      # ─── Gradle cache ──────────────────────────────────────────────────────
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('mobile/android/**/*.gradle*') }}
+          restore-keys: ${{ runner.os }}-gradle-
 
       # ─── Gradle build ──────────────────────────────────────────────────────
       - name: Build debug APK
@@ -105,8 +121,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: mobile/package-lock.json
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: mobile/node_modules
+          key: ${{ runner.os }}-mobile-${{ hashFiles('mobile/package.json') }}
+          restore-keys: ${{ runner.os }}-mobile-
 
       - uses: actions/setup-java@v4
         with:
@@ -117,13 +138,22 @@ jobs:
 
       - name: Install dependencies
         working-directory: mobile
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       - name: Expo prebuild
         working-directory: mobile
         run: npx expo prebuild --platform android --clean
         env:
           EXPO_NO_TELEMETRY: 1
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('mobile/android/**/*.gradle*') }}
+          restore-keys: ${{ runner.os }}-gradle-
 
       - name: Build release APK
         working-directory: mobile/android
