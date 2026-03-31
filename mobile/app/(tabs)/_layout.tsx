@@ -15,6 +15,7 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: COLORS.primaryBlue,
         tabBarInactiveTintColor: COLORS.textSecondary,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: 'rgba(255,255,255,0.95)',
           borderTopColor: COLORS.border,

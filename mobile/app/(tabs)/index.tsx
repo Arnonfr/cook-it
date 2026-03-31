@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
@@ -32,6 +33,7 @@ export default function SearchScreen() {
     results,
     isLoading,
     isRefreshing,
+    refetch,
     handleInputChange,
     handleSubmit,
     clearSearch,
@@ -127,6 +129,12 @@ export default function SearchScreen() {
               setShowRecent(t.length === 0);
             }}
             onSubmit={(t) => {
+              void addRecentSearch(t.trim());
+              setRecentSearches((prev) =>
+                t.trim().length >= 2
+                  ? [t.trim(), ...prev.filter((s) => s !== t.trim())].slice(0, 8)
+                  : prev
+              );
               handleSubmit(t);
               setShowRecent(false);
             }}
@@ -162,6 +170,8 @@ export default function SearchScreen() {
                 renderItem={() => <SkeletonCard />}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
               />
             ) : (
               <FlashList
@@ -171,6 +181,20 @@ export default function SearchScreen() {
                 estimatedItemSize={260}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
+                refreshControl={
+                  <RefreshControl
+                    refreshing={isRefreshing}
+                    onRefresh={() => {
+                      if (query.length >= 2) {
+                        void refetch();
+                      }
+                    }}
+                    tintColor={COLORS.primaryBlue}
+                    colors={[COLORS.primaryBlue]}
+                  />
+                }
                 ListEmptyComponent={ListEmpty}
                 ListHeaderComponent={
                   isRefreshing ? (
@@ -196,6 +220,18 @@ export default function SearchScreen() {
             estimatedItemSize={260}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            refreshControl={
+              <RefreshControl
+                refreshing={catalogQuery.isRefetching}
+                onRefresh={() => {
+                  void catalogQuery.refetch();
+                }}
+                tintColor={COLORS.primaryBlue}
+                colors={[COLORS.primaryBlue]}
+              />
+            }
             ListHeaderComponent={
               <Text style={styles.sectionHeading}>
                 {catalogQuery.isLoading ? 'טוען...' : 'מתכונים פופולריים'}

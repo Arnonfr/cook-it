@@ -2,7 +2,7 @@
   "expo": {
     "name": "Cookit",
     "slug": "cookit",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "cookit",
@@ -18,7 +18,7 @@
         "backgroundColor": "#236EFF"
       },
       "package": "com.cookit.app",
-      "versionCode": 6,
+      "versionCode": 7,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.VIBRATE"

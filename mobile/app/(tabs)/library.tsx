@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -32,15 +32,16 @@ function toSearchResult(r: ParsedRecipe) {
 
 export default function LibraryScreen() {
   const router = useRouter();
-  const [userId] = useState(() => {
-    let id = 'anonymous';
-    getUserId().then((v) => (id = v));
-    return id;
-  });
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getUserId().then(setUserId).catch(() => setUserId('anonymous'));
+  }, []);
 
   const { data: recipes, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['library', userId],
-    queryFn: () => fetchLibrary(userId),
+    queryFn: () => fetchLibrary(userId ?? 'anonymous'),
+    enabled: !!userId,
     staleTime: 2 * 60 * 1000,
   });
 
@@ -55,7 +56,7 @@ export default function LibraryScreen() {
     [router]
   );
 
-  if (isLoading) {
+  if (isLoading || !userId) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.center}>
