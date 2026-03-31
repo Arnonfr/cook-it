@@ -87,24 +87,36 @@ jobs:
         env:
           GRADLE_OPTS: '-Xmx4g -XX:MaxMetaspaceSize=512m'
 
-      # ─── Sign with temp keystore (no secrets needed) ───────────────────────
+      # ─── Find APK and sign ─────────────────────────────────────────────────
       - name: Sign release APK
         run: |
-          # Generate a temporary signing keystore for CI distribution
+          echo "=== All APK files after build ==="
+          find mobile/android/app/build/outputs -name "*.apk" -type f 2>/dev/null | sort
+          echo "================================="
+
+          # Find the release APK (could be unsigned or already signed by Expo)
+          SOURCE_APK=$(find mobile/android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          if [ -z "$SOURCE_APK" ]; then
+            echo "❌ No APK found in release dir!"
+            find mobile/android/app/build -name "*.apk" 2>/dev/null
+            exit 1
+          fi
+          echo "Source APK: $SOURCE_APK"
+
+          # Generate a temporary signing keystore for CI
           keytool -genkey -v \
             -keystore /tmp/cookit-ci.keystore \
             -alias cookit \
             -keyalg RSA -keysize 2048 -validity 3650 \
             -storepass cookit123 -keypass cookit123 \
-            -dname "CN=CookIt CI,O=CookIt,C=IL" 2>&1
+            -dname "CN=CookIt CI,O=CookIt,C=IL"
 
           BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
           echo "Build tools: $BUILD_TOOLS"
 
           # Align APK
-          $BUILD_TOOLS/zipalign -v 4 \
-            mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk \
-            mobile/android/app/build/outputs/apk/release/app-release-aligned.apk
+          $BUILD_TOOLS/zipalign -v 4 "$SOURCE_APK" /tmp/app-aligned.apk \
+            || cp "$SOURCE_APK" /tmp/app-aligned.apk
 
           # Sign with apksigner
           $BUILD_TOOLS/apksigner sign \
@@ -113,7 +125,7 @@ jobs:
             --key-pass pass:cookit123 \
             --ks-key-alias cookit \
             --out mobile/android/app/build/outputs/apk/release/app-release-signed.apk \
-            mobile/android/app/build/outputs/apk/release/app-release-aligned.apk
+            /tmp/app-aligned.apk
 
           echo "✅ Signed APK:"
           ls -lh mobile/android/app/build/outputs/apk/release/app-release-signed.apk
