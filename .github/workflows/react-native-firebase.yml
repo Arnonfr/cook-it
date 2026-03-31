@@ -53,7 +53,7 @@ jobs:
       # ─── Fix Expo package versions to match installed SDK ──────────────────
       - name: Fix Expo package versions
         working-directory: mobile
-        run: npx expo install --fix --non-interactive
+        run: npx expo install --fix
         env:
           EXPO_NO_TELEMETRY: 1
 
