@@ -71,12 +71,32 @@ jobs:
             > mobile/android/gradle/wrapper/gradle-wrapper.properties
 
       # ─── Bundle JS into debug APK (no Metro needed at runtime) ────────────
-      - name: Enable JS bundle in debug APK
+      # RN 0.76 requires bundleInDebug inside react{} block in app/build.gradle
+      - name: Patch app/build.gradle — bundleInDebug = true
         run: |
-          echo "" >> mobile/android/gradle.properties
-          echo "# Bundle JS in debug so APK works without Metro bundler" >> mobile/android/gradle.properties
-          echo "BUNDLE_IN_DEBUG=true" >> mobile/android/gradle.properties
-          echo "DEV=false" >> mobile/android/gradle.properties
+          python3 - << 'PYEOF'
+          import re, sys
+          path = 'mobile/android/app/build.gradle'
+          with open(path, 'r') as f:
+              content = f.read()
+          # Inject bundleInDebug = true as first line inside react { }
+          patched = re.sub(
+              r'(react\s*\{)',
+              r'\1\n    bundleInDebug = true',
+              content,
+              count=1
+          )
+          if patched == content:
+              print("WARNING: react {} block not found — trying fallback", file=sys.stderr)
+              # Fallback: append react block at end of android {} block
+              patched = content + '\n// bundleInDebug patch\n'
+          with open(path, 'w') as f:
+              f.write(patched)
+          print("Patched app/build.gradle:")
+          for i, line in enumerate(patched.splitlines()):
+              if 'bundleInDebug' in line or 'react {' in line:
+                  print(f"  L{i+1}: {line}")
+          PYEOF
 
       # ─── Gradle cache ──────────────────────────────────────────────────────
       - name: Cache Gradle
