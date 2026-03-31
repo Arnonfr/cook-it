@@ -70,34 +70,6 @@ jobs:
           printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.8-all.zip\nvalidateDistributionUrl=true\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' \
             > mobile/android/gradle/wrapper/gradle-wrapper.properties
 
-      # ─── Bundle JS into debug APK (no Metro needed at runtime) ────────────
-      # RN 0.76 requires bundleInDebug inside react{} block in app/build.gradle
-      - name: Patch app/build.gradle — bundleInDebug = true
-        run: |
-          python3 - << 'PYEOF'
-          import re, sys
-          path = 'mobile/android/app/build.gradle'
-          with open(path, 'r') as f:
-              content = f.read()
-          # Inject bundleInDebug = true as first line inside react { }
-          patched = re.sub(
-              r'(react\s*\{)',
-              r'\1\n    bundleInDebug = true',
-              content,
-              count=1
-          )
-          if patched == content:
-              print("WARNING: react {} block not found — trying fallback", file=sys.stderr)
-              # Fallback: append react block at end of android {} block
-              patched = content + '\n// bundleInDebug patch\n'
-          with open(path, 'w') as f:
-              f.write(patched)
-          print("Patched app/build.gradle:")
-          for i, line in enumerate(patched.splitlines()):
-              if 'bundleInDebug' in line or 'react {' in line:
-                  print(f"  L{i+1}: {line}")
-          PYEOF
-
       # ─── Gradle cache ──────────────────────────────────────────────────────
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -108,25 +80,50 @@ jobs:
           key: ${{ runner.os }}-gradle-8.8-rn76
           restore-keys: ${{ runner.os }}-gradle-8.8-
 
-      # ─── Gradle build ──────────────────────────────────────────────────────
-      - name: Build debug APK
+      # ─── Build RELEASE APK — JS bundle always embedded, no Metro needed ────
+      - name: Build release APK
         working-directory: mobile/android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleRelease --no-daemon
         env:
           GRADLE_OPTS: '-Xmx4g -XX:MaxMetaspaceSize=512m'
 
-      # ─── Verify ────────────────────────────────────────────────────────────
-      - name: Verify APK
+      # ─── Sign with temp keystore (no secrets needed) ───────────────────────
+      - name: Sign release APK
         run: |
-          ls -lh mobile/android/app/build/outputs/apk/debug/
-          file mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          # Generate a temporary signing keystore for CI distribution
+          keytool -genkey -v \
+            -keystore /tmp/cookit-ci.keystore \
+            -alias cookit \
+            -keyalg RSA -keysize 2048 -validity 3650 \
+            -storepass cookit123 -keypass cookit123 \
+            -dname "CN=CookIt CI,O=CookIt,C=IL" 2>&1
+
+          BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          echo "Build tools: $BUILD_TOOLS"
+
+          # Align APK
+          $BUILD_TOOLS/zipalign -v 4 \
+            mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk \
+            mobile/android/app/build/outputs/apk/release/app-release-aligned.apk
+
+          # Sign with apksigner
+          $BUILD_TOOLS/apksigner sign \
+            --ks /tmp/cookit-ci.keystore \
+            --ks-pass pass:cookit123 \
+            --key-pass pass:cookit123 \
+            --ks-key-alias cookit \
+            --out mobile/android/app/build/outputs/apk/release/app-release-signed.apk \
+            mobile/android/app/build/outputs/apk/release/app-release-aligned.apk
+
+          echo "✅ Signed APK:"
+          ls -lh mobile/android/app/build/outputs/apk/release/app-release-signed.apk
 
       # ─── Upload artifact ───────────────────────────────────────────────────
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cookit-rn-debug-${{ github.run_number }}
-          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          name: cookit-rn-release-${{ github.run_number }}
+          path: mobile/android/app/build/outputs/apk/release/app-release-signed.apk
           retention-days: 14
 
       # ─── Firebase App Distribution ─────────────────────────────────────────
@@ -137,7 +134,7 @@ jobs:
           appId: 1:629153402724:android:fb933cd078c975a42c3471
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           testers: arnon7700@gmail.com
-          file: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          file: mobile/android/app/build/outputs/apk/release/app-release-signed.apk
           releaseNotes: |
             ${{ inputs.release_notes != '' && inputs.release_notes || format('CookIt RN v1.2.0 — Build #{0}', github.run_number) }}
 
