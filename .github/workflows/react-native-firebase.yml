@@ -50,6 +50,13 @@ jobs:
         working-directory: mobile
         run: npm install --legacy-peer-deps
 
+      # ─── Fix Expo package versions to match installed SDK ──────────────────
+      - name: Fix Expo package versions
+        working-directory: mobile
+        run: npx expo install --fix --non-interactive
+        env:
+          EXPO_NO_TELEMETRY: 1
+
       # ─── Expo Prebuild ─────────────────────────────────────────────────────
       - name: Expo prebuild (generate Android project)
         working-directory: mobile
