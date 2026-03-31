@@ -70,6 +70,14 @@ jobs:
           printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.8-all.zip\nvalidateDistributionUrl=true\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' \
             > mobile/android/gradle/wrapper/gradle-wrapper.properties
 
+      # ─── Bundle JS into debug APK (no Metro needed at runtime) ────────────
+      - name: Enable JS bundle in debug APK
+        run: |
+          echo "" >> mobile/android/gradle.properties
+          echo "# Bundle JS in debug so APK works without Metro bundler" >> mobile/android/gradle.properties
+          echo "BUNDLE_IN_DEBUG=true" >> mobile/android/gradle.properties
+          echo "DEV=false" >> mobile/android/gradle.properties
+
       # ─── Gradle cache ──────────────────────────────────────────────────────
       - name: Cache Gradle
         uses: actions/cache@v4
