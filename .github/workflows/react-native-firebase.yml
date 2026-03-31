@@ -57,6 +57,12 @@ jobs:
         env:
           EXPO_NO_TELEMETRY: 1
 
+      # ─── Pin Gradle 8.8 (RN 0.76.x compat — 8.10.x breaks components.release)─
+      - name: Patch Gradle wrapper to 8.8
+        run: |
+          printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.8-all.zip\nvalidateDistributionUrl=true\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' \
+            > mobile/android/gradle/wrapper/gradle-wrapper.properties
+
       # ─── Gradle cache ──────────────────────────────────────────────────────
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -64,8 +70,8 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('mobile/android/**/*.gradle*') }}
-          restore-keys: ${{ runner.os }}-gradle-
+          key: ${{ runner.os }}-gradle-8.8-rn76
+          restore-keys: ${{ runner.os }}-gradle-8.8-
 
       # ─── Gradle build ──────────────────────────────────────────────────────
       - name: Build debug APK
