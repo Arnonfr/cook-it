@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, lazy, Suspense } from 'react';
+import { useCallback, useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { App as CapApp } from '@capacitor/app';
 import {
@@ -938,9 +938,15 @@ export const App = () => {
   const [view, setView] = useState<View>('home');
   const [previousView, setPreviousView] = useState<View>('home');
   const [direction, setDirection] = useState(1);
-  const viewHistory = useRef<string[]>(['home']);
+  const viewHistory = useRef<View[]>(['home']);
+  const homeScrollRef = useRef<HTMLDivElement | null>(null);
+  const searchScrollRef = useRef<HTMLDivElement | null>(null);
+  const libraryScrollRef = useRef<HTMLDivElement | null>(null);
+  const profileScrollRef = useRef<HTMLDivElement | null>(null);
   const [query, setQuery] = useState('');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shareToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const homeExitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [fallbackUrl, setFallbackUrl] = useState('');
   const [selectedRecipe, setSelectedRecipe] = useState<ParsedRecipe | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -964,6 +970,7 @@ export const App = () => {
   const [blockedDomains, setBlockedDomains] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('blocked_domains') || '[]')); } catch { return new Set(); }
   });
+  const [showExitHint, setShowExitHint] = useState(false);
 
   const navigateTo = (newView: View) => {
     const currentIndex = viewHistory.current.indexOf(newView);
@@ -976,6 +983,63 @@ export const App = () => {
     }
     setView(newView);
   };
+
+  const scrollCurrentViewToTop = useCallback(() => {
+    const scrollMap: Record<View, HTMLDivElement | null> = {
+      home: homeScrollRef.current,
+      search: searchScrollRef.current,
+      library: libraryScrollRef.current,
+      profile: profileScrollRef.current,
+      recipe: null,
+      fallback: null,
+    };
+
+    scrollMap[view]?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [view]);
+
+  const dismissExitHintSoon = useCallback(() => {
+    if (homeExitTimeoutRef.current) clearTimeout(homeExitTimeoutRef.current);
+    homeExitTimeoutRef.current = setTimeout(() => {
+      setShowExitHint(false);
+      homeExitTimeoutRef.current = null;
+    }, 1800);
+  }, []);
+
+  const navigateBack = useCallback(() => {
+    if (isImportModalOpen) {
+      setIsImportModalOpen(false);
+      return true;
+    }
+
+    if (view === 'recipe' || view === 'fallback') {
+      setDirection(-1);
+      viewHistory.current = viewHistory.current.filter(entry => entry !== 'recipe' && entry !== 'fallback');
+      if (!viewHistory.current.includes(previousView)) {
+        viewHistory.current.push(previousView);
+      }
+      setView(previousView);
+      return true;
+    }
+
+    if (viewHistory.current.length > 1) {
+      const nextHistory = [...viewHistory.current];
+      nextHistory.pop();
+      const targetView = nextHistory[nextHistory.length - 1] ?? 'home';
+      viewHistory.current = nextHistory;
+      setDirection(-1);
+      setView(targetView);
+      return true;
+    }
+
+    if (view !== 'home') {
+      viewHistory.current = ['home'];
+      setDirection(-1);
+      setView('home');
+      return true;
+    }
+
+    return false;
+  }, [isImportModalOpen, previousView, view]);
 
   const handleBlockDomain = (domain: string) => {
     setBlockedDomains(prev => {
@@ -992,6 +1056,14 @@ export const App = () => {
     url: string;
     recipe: ParsedRecipe | null;
   }>({ show: false, url: '', recipe: null });
+
+  const scheduleShareToastDismiss = useCallback(() => {
+    if (shareToastTimeoutRef.current) clearTimeout(shareToastTimeoutRef.current);
+    shareToastTimeoutRef.current = setTimeout(() => {
+      setShareToast(prev => ({ ...prev, show: false }));
+      shareToastTimeoutRef.current = null;
+    }, 3000);
+  }, []);
 
   // Handle shared URL with toast (used by Android integration)
   // Just shows toast in background, doesn't open the app
@@ -1010,19 +1082,13 @@ export const App = () => {
       // Refresh library in background
       void loadLibrary();
       
-      // Auto dismiss after 3 seconds
-      setTimeout(() => {
-        setShareToast(prev => ({ ...prev, show: false }));
-      }, 3000);
+      scheduleShareToastDismiss();
     } catch (error) {
       console.error('Failed to extract shared recipe:', error);
       // Still show toast but without recipe
       setShareToast({ show: true, url, recipe: null });
       
-      // Auto dismiss after 3 seconds
-      setTimeout(() => {
-        setShareToast(prev => ({ ...prev, show: false }));
-      }, 3000);
+      scheduleShareToastDismiss();
     }
   };
 
@@ -1031,17 +1097,15 @@ export const App = () => {
     void loadLibrary();
     void loadCommunity();
 
-    // Handle deep links
     const handleDeepLink = (urlString: string) => {
       console.log('handleDeepLink called with:', urlString);
       try {
-        // Parse cookit://parse?url=... format manually
         const match = urlString.match(/^cookit:\/\/parse\?url=(.+)$/);
         if (match) {
           const recipeUrl = decodeURIComponent(match[1]);
           console.log('Recipe URL:', recipeUrl);
           if (recipeUrl) {
-            handleSharedUrl(recipeUrl);
+            void handleSharedUrl(recipeUrl);
           }
         } else {
           console.log('URL does not match expected format');
@@ -1051,27 +1115,55 @@ export const App = () => {
       }
     };
 
-    const setupAppEvents = async () => {
-      // Listen for new deep links
-      CapApp.addListener('appUrlOpen', (event: any) => {
-        handleDeepLink(event.url);
-      });
+    const appUrlListener = CapApp.addListener('appUrlOpen', (event: any) => {
+      handleDeepLink(event.url);
+    });
 
-      // Check for pending deep link after a short delay (for when app was launched from share)
-      setTimeout(async () => {
-        try {
-          const result = await (CapApp as any).getPendingUrl?.() || { url: null };
-          if (result.url) {
-            handleDeepLink(result.url);
-          }
-        } catch (e) {
-          // Plugin not available, ignore
+    const pendingUrlTimeout = setTimeout(async () => {
+      try {
+        const result = await (CapApp as any).getPendingUrl?.() || { url: null };
+        if (result.url) {
+          handleDeepLink(result.url);
         }
-      }, 500);
-    };
-    void setupAppEvents();
+      } catch (e) {
+        // Plugin not available, ignore
+      }
+    }, 500);
 
-  }, []);
+    return () => {
+      clearTimeout(pendingUrlTimeout);
+      void appUrlListener.then(listener => listener.remove()).catch(() => {});
+      if (shareToastTimeoutRef.current) clearTimeout(shareToastTimeoutRef.current);
+      if (homeExitTimeoutRef.current) clearTimeout(homeExitTimeoutRef.current);
+    };
+  }, [scheduleShareToastDismiss]);
+
+  useEffect(() => {
+    const isAndroid = typeof window !== 'undefined'
+      && typeof (window as any).Capacitor !== 'undefined'
+      && (window as any).Capacitor.getPlatform?.() === 'android';
+
+    if (!isAndroid) return;
+
+    const backButtonListener = CapApp.addListener('backButton', () => {
+      if (navigateBack()) {
+        setShowExitHint(false);
+        return;
+      }
+
+      if (showExitHint) {
+        CapApp.exitApp();
+        return;
+      }
+
+      setShowExitHint(true);
+      dismissExitHintSoon();
+    });
+
+    return () => {
+      void backButtonListener.then(listener => listener.remove()).catch(() => {});
+    };
+  }, [dismissExitHintSoon, navigateBack, showExitHint]);
 
   useEffect(() => {
     if (!keepScreenOn || !('wakeLock' in navigator)) return;
@@ -1183,6 +1275,12 @@ export const App = () => {
     }, 350);
   };
 
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
+
   const handleExtractRecipe = async (url?: string) => {
     Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
     const targetUrl = (url || importUrl).trim();
@@ -1281,7 +1379,7 @@ export const App = () => {
               <Suspense fallback={<SkeletonHero />}>
                 <RecipeResult
                   recipe={selectedRecipe}
-                  onBack={() => { Haptics.impact({ style: ImpactStyle.Light }).catch(() => {}); navigateTo(previousView); }}
+                  onBack={() => { Haptics.impact({ style: ImpactStyle.Light }).catch(() => {}); navigateBack(); }}
                   onSave={handleSaveRecipe}
                 />
               </Suspense>
@@ -1302,7 +1400,7 @@ export const App = () => {
           <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={() => { setIsExtracting(false); navigateTo(previousView); }}
+              onClick={() => { setIsExtracting(false); navigateBack(); }}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition-colors hover:bg-slate-50"
             >
               <ArrowLeft size={20} />
@@ -1411,7 +1509,7 @@ export const App = () => {
 
         {/* ─── HOME VIEW ─── */}
         {view === 'home' && (
-          <motion.div key="home" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '96px', paddingLeft: '16px', paddingRight: '16px' }}>
+          <motion.div ref={homeScrollRef} key="home" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'contain', paddingBottom: '96px', paddingLeft: '16px', paddingRight: '16px' }}>
           <>
             {/* ─── Quick Category Chips - Only on Home ─── */}
             <section className="mt-7">
@@ -1421,10 +1519,8 @@ export const App = () => {
                     key={category.label}
                     type="button"
                     onClick={() => {
-                      // Search in local library only
                       setQuery(category.label);
-                      navigateTo('search');
-                      // TODO: Implement local library search
+                      void handleSearch(category.label);
                     }}
                     className="min-w-[88px] shrink-0"
                   >
@@ -1510,7 +1606,7 @@ export const App = () => {
 
         {/* ─── SEARCH VIEW ─── */}
         {view === 'search' && (
-          <motion.div key="search" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '96px', paddingLeft: '16px', paddingRight: '16px' }}>
+          <motion.div ref={searchScrollRef} key="search" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'contain', paddingBottom: '96px', paddingLeft: '16px', paddingRight: '16px' }}>
           <section className="relative mt-9">
             {/* Loading overlay when extracting a recipe */}
             {isExtracting && (
@@ -1596,21 +1692,21 @@ export const App = () => {
 
         {/* ─── LIBRARY VIEW ─── */}
         {view === 'library' && (
-          <motion.div key="library" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '96px', paddingLeft: '16px', paddingRight: '16px' }}>
+          <motion.div ref={libraryScrollRef} key="library" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'contain', paddingBottom: '96px', paddingLeft: '16px', paddingRight: '16px' }}>
           <LibraryView
             recipes={libraryRecipes}
             onOpen={handleOpenParsedRecipe}
-            onBack={() => navigateTo('home')}
+            onBack={navigateBack}
           />
           </motion.div>
         )}
 
         {/* ─── PROFILE VIEW ─── */}
         {view === 'profile' && (
-          <motion.div key="profile" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '96px', paddingLeft: '16px', paddingRight: '16px' }}>
+          <motion.div ref={profileScrollRef} key="profile" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'contain', paddingBottom: '96px', paddingLeft: '16px', paddingRight: '16px' }}>
           <section className="mt-9">
             <ProfileView
-                onBack={() => navigateTo('home')}
+                onBack={navigateBack}
                 keepScreenOn={keepScreenOn}
                 onKeepScreenOnChange={(v) => { setKeepScreenOn(v); localStorage.setItem('keep_screen_on', v.toString()); }}
               />
@@ -1626,7 +1722,7 @@ export const App = () => {
           <button
             className={`relative flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors active:scale-[0.96] active:opacity-80 transition-transform duration-75 ${view === 'home' ? 'text-[#2f6d63]' : 'text-slate-600 hover:bg-slate-100'}`}
             onClick={() => {
-              if (view === 'home') window.scrollTo({ top: 0, behavior: 'smooth' });
+              if (view === 'home') scrollCurrentViewToTop();
               else { navigateTo('home'); void loadCommunity(); void loadLibrary(); }
             }}
             title="בית"
@@ -1639,7 +1735,8 @@ export const App = () => {
           <button
             className={`relative flex items-center justify-center h-12 w-12 rounded-[16px] transition-colors active:scale-[0.96] active:opacity-80 transition-transform duration-75 ${view === 'search' ? 'text-[#2f6d63]' : 'text-slate-600 hover:bg-slate-100'}`}
             onClick={() => {
-              if (view !== 'search') navigateTo('search');
+              if (view === 'search') scrollCurrentViewToTop();
+              else navigateTo('search');
             }}
             title="חיפוש"
           >
@@ -1735,6 +1832,12 @@ export const App = () => {
           isExtracting={!shareToast.recipe}
           onDismiss={() => setShareToast({ show: false, url: '', recipe: null })}
         />
+      )}
+
+      {showExitHint && (
+        <div className="pointer-events-none fixed bottom-[152px] left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-950/88 px-4 py-2 text-sm font-bold text-white shadow-lg">
+          לחץ שוב כדי לצאת
+        </div>
       )}
     </div>
   );
