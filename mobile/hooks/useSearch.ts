@@ -70,6 +70,7 @@ export function useSearch() {
     isLoading: searchQuery.isFetching && !searchQuery.data,
     isRefreshing: searchQuery.isFetching && !!searchQuery.data,
     error: searchQuery.error,
+    refetch: searchQuery.refetch,
     handleInputChange,
     handleSubmit,
     clearSearch,
