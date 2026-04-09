@@ -33,7 +33,7 @@ jobs:
 
       - name: Install Native Dependencies
         working-directory: ./cookit-native
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Expo Prebuild
         working-directory: ./cookit-native
@@ -98,7 +98,7 @@ jobs:
 
       - name: Install Native Dependencies
         working-directory: ./cookit-native
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Expo Prebuild
         working-directory: ./cookit-native
