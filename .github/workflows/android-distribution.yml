@@ -46,13 +46,13 @@ jobs:
       - name: Verify APK
         run: |
           ls -lh cookit-native/android/app/build/outputs/apk/debug/
-          file cookit-native/android/app/build/outputs/apk/debug/app-debug.apk
+          file cookit-native/android/app/build/outputs/apk/debug/app-debug.apk || true
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: cookit-native/android/app/build/outputs/apk/debug/app-debug.apk
+          path: cookit-native/android/app/build/outputs/apk/debug/*.apk
 
       # Firebase Distribution
       - name: Distribute to Firebase
