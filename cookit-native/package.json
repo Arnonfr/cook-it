@@ -12,7 +12,6 @@
     "@expo-google-fonts/noto-sans-hebrew": "^0.4.1",
     "@react-navigation/native": "^7.2.2",
     "@react-navigation/native-stack": "^7.14.10",
-    "@shopify/flash-list": "2.0.2",
     "@tanstack/react-query": "^5.97.0",
     "axios": "^1.15.0",
     "expo": "~54.0.33",
@@ -25,14 +24,10 @@
     "lucide-react-native": "^1.8.0",
     "react": "19.1.0",
     "react-native": "0.81.5",
-    "react-native-mmkv": "^4.3.1",
-    "react-native-nitro-modules": "^0.35.4",
-    "react-native-reanimated": "~4.1.1",
+    "react-native-mmkv": "^3.2.0",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
-    "react-native-svg": "15.12.1",
-    "react-native-worklets": "^0.8.1",
-    "react-native-worklets-core": "^1.6.3"
+    "react-native-svg": "15.12.1"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
