@@ -4,6 +4,7 @@ import { RecipeResult } from '../components/RecipeResult';
 import { ParsedRecipe } from '../types';
 import { api } from '../api/client';
 import { colors } from '../theme/designSystem';
+import { recipeStore } from '../store/recipeStore';
 
 export const RecipeScreen = ({ navigation, route }: any) => {
   const { recipeUrl, recipeData } = route.params || {};
@@ -52,14 +53,20 @@ export const RecipeScreen = ({ navigation, route }: any) => {
     );
   }
 
+  const handleSave = (r: ParsedRecipe) => {
+    if (recipeStore.isSaved(r.sourceUrl || '')) {
+      recipeStore.remove(r.sourceUrl || '');
+    } else {
+      recipeStore.save(r);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <RecipeResult
         recipe={recipe}
         onBack={() => navigation.goBack()}
-        onSave={(r) => {
-          console.log('Saved recipe:', r.title);
-        }}
+        onSave={handleSave}
       />
     </View>
   );

@@ -23,7 +23,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.cookitnative"
+      "package": "il.co.cookit.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -35,7 +35,7 @@
         "expo-share-intent",
         {
           "scheme": "cookit",
-          "disableRnnModule": false
+          "disableRnnModule": true
         }
       ]
     ]

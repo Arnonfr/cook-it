@@ -10,7 +10,7 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'zulu'
+          distribution: 'temurin'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -28,8 +28,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: cookit-native/package-lock.json
 
       - name: Install Native Dependencies
         working-directory: ./cookit-native
@@ -37,22 +35,62 @@ jobs:
 
       - name: Expo Prebuild
         working-directory: ./cookit-native
-        run: npx expo prebuild --platform android
+        run: npx expo prebuild --platform android --clean
+        env:
+          EXPO_NO_TELEMETRY: 1
+
+      - name: Pin Gradle 8.8 (RN 0.81.x compatibility)
+        run: |
+          printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.8-all.zip\nvalidateDistributionUrl=true\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' \
+            > cookit-native/android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-8.8-rn81
+          restore-keys: ${{ runner.os }}-gradle-8.8-
 
       - name: Build Release APK
         working-directory: ./cookit-native/android
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleRelease --no-daemon
+        env:
+          GRADLE_OPTS: '-Xmx4g -XX:MaxMetaspaceSize=512m'
 
-      - name: Verify APK
+      - name: Sign APK with CI keystore
         run: |
-          ls -lh cookit-native/android/app/build/outputs/apk/release/
-          file cookit-native/android/app/build/outputs/apk/release/app-release-unsigned.apk || true
+          SOURCE_APK=$(find cookit-native/android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          echo "Source APK: $SOURCE_APK"
+
+          keytool -genkey -v \
+            -keystore /tmp/cookit-ci.keystore \
+            -alias cookit \
+            -keyalg RSA -keysize 2048 -validity 3650 \
+            -storepass cookit123 -keypass cookit123 \
+            -dname "CN=CookIt CI,O=CookIt,C=IL"
+
+          BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          $BUILD_TOOLS/zipalign -v 4 "$SOURCE_APK" /tmp/app-aligned.apk || cp "$SOURCE_APK" /tmp/app-aligned.apk
+
+          $BUILD_TOOLS/apksigner sign \
+            --ks /tmp/cookit-ci.keystore \
+            --ks-pass pass:cookit123 \
+            --key-pass pass:cookit123 \
+            --ks-key-alias cookit \
+            --out cookit-native/android/app/build/outputs/apk/release/app-release-signed.apk \
+            /tmp/app-aligned.apk
+
+          echo "✅ Signed APK:"
+          ls -lh cookit-native/android/app/build/outputs/apk/release/app-release-signed.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: cookit-native/android/app/build/outputs/apk/release/*.apk
+          name: cookit-rn-build-${{ github.run_number }}
+          path: cookit-native/android/app/build/outputs/apk/release/app-release-signed.apk
+          retention-days: 14
 
       # Firebase Distribution
       - name: Distribute to Firebase
@@ -62,20 +100,23 @@ jobs:
           appId: 1:629153402724:android:fb933cd078c975a42c3471
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           testers: arnon7700@gmail.com
-          file: cookit-native/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          file: cookit-native/android/app/build/outputs/apk/release/app-release-signed.apk
           releaseNotes: |
-            CookIt Native App (React Native Preview) — Build ${{ github.run_number }}
+            CookIt Native (React Native) — Build ${{ github.run_number }}
 
             ✨ חדש:
-            - פיתוח ב-React Native לביצועים מרביים (גרסת בטא ראשונה)
-            - UI חדש ומרענן בעל חוויית משתמש חלקה
-            - תמיכה מובנית ב-Share Intents של המערכת
-            - חיפוש מהיר וחלק
+            - פיתוח ב-React Native לביצועים מרביים
+            - UI חדש עם חיפוש מיידי ו-debounce
+            - שמירת מתכונים מקומית מהירה (MMKV)
+            - תמיכה מובנית ב-Share Intents
+            - RTL נייטיב + פונט Noto Sans Hebrew
+
+            Commit: ${{ github.sha }}
 
   build-release:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
-    
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -84,7 +125,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'zulu'
+          distribution: 'temurin'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -93,8 +134,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: cookit-native/package-lock.json
 
       - name: Install Native Dependencies
         working-directory: ./cookit-native
@@ -102,11 +141,29 @@ jobs:
 
       - name: Expo Prebuild
         working-directory: ./cookit-native
-        run: npx expo prebuild --platform android
+        run: npx expo prebuild --platform android --clean
+        env:
+          EXPO_NO_TELEMETRY: 1
+
+      - name: Pin Gradle 8.8
+        run: |
+          printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.8-all.zip\nvalidateDistributionUrl=true\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' \
+            > cookit-native/android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-8.8-rn81
+          restore-keys: ${{ runner.os }}-gradle-8.8-
 
       - name: Build Release APK
         working-directory: ./cookit-native/android
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleRelease --no-daemon
+        env:
+          GRADLE_OPTS: '-Xmx4g -XX:MaxMetaspaceSize=512m'
 
       - name: Sign Release APK
         uses: r0adkll/sign-android-release@v1
@@ -121,7 +178,7 @@ jobs:
       - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-signed
+          name: cookit-rn-release-${{ github.ref_name }}
           path: ${{ steps.sign_app.outputs.signedReleaseFile }}
 
       - name: Distribute Release to Firebase

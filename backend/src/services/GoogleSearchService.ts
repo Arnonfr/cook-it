@@ -290,7 +290,7 @@ export class GoogleSearchService {
     private serperCall(q: string, gl: string, hl: string) {
         return axios.post<any>(
             'https://google.serper.dev/search',
-            { q, gl, hl, num: 10 },
+            { q, gl, hl, num: 20 },
             {
                 headers: { 'X-API-KEY': this.serperApiKey, 'Content-Type': 'application/json' },
                 timeout: 5000
@@ -352,7 +352,7 @@ export class GoogleSearchService {
                 return { result, score };
             })
             .sort((a: any, b: any) => b.score - a.score)
-            .slice(0, 15)
+            .slice(0, 25)
             .map((x: any) => x.result)
             .filter((r: SearchResult) => r.title);
 

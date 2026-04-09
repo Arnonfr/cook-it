@@ -901,7 +901,7 @@ ${cleanText.substring(0, 30000)}`;
                 }
             } else if (item?.['@type'] === 'HowToStep') {
                 const text = item.text || item.description || '';
-                if (text.length > 200 && steps.length === 0) {
+                if (text.length > 200) {
                     this.splitInstructionText(text).forEach(addStep);
                 } else {
                     addStep(text);
@@ -1001,7 +1001,29 @@ ${cleanText.substring(0, 30000)}`;
                 console.log('[Recipe] Loading HTML into cheerio...');
                 const $clean = cheerio.load(html);
                 $clean('script, style, noscript, iframe, img, svg, video, audio, source, track, canvas, map, object, embed, footer, nav, aside, header, [class*="comment"], [class*="sidebar"], [id*="comment"], [id*="sidebar"]').remove();
-                const cleanText = $clean('body').text().replace(/\s+/g, ' ').trim();
+                let cleanText = $clean('body').text().replace(/\s+/g, ' ').trim();
+
+                // For JS SPAs (Next.js/Nuxt etc) the body text is empty — extract embedded JSON data
+                if (cleanText.length < 100) {
+                    const nextDataMatch = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+                    if (nextDataMatch) {
+                        try {
+                            const nextData = JSON.parse(nextDataMatch[1]);
+                            // Stringify the props/pageProps subtree which contains the actual recipe data
+                            const pageProps = nextData?.props?.pageProps || nextData?.props || nextData;
+                            cleanText = JSON.stringify(pageProps).substring(0, 30000);
+                            console.log(`[Recipe] Extracted __NEXT_DATA__, length: ${cleanText.length}`);
+                        } catch { /* ignore parse errors */ }
+                    }
+                    // Also try __NUXT__ and similar
+                    if (cleanText.length < 100) {
+                        const nuxtMatch = html.match(/window\.__NUXT__\s*=\s*(\{[\s\S]*?\});\s*<\/script>/i);
+                        if (nuxtMatch) {
+                            cleanText = nuxtMatch[1].substring(0, 30000);
+                            console.log(`[Recipe] Extracted __NUXT__ data, length: ${cleanText.length}`);
+                        }
+                    }
+                }
 
                 console.log(`[Recipe] Clean text length: ${cleanText.length}`);
                 if (cleanText.length > 100) {

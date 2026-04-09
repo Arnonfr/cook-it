@@ -1277,7 +1277,7 @@ export const App = () => {
       <div className="fixed inset-0 overflow-hidden bg-[#F0F4F8]">
         <div className="mx-auto h-full w-full max-w-[430px]" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <AnimatePresence mode="wait">
-            <motion.div key="recipe-view" initial={{ x: '100%', opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: '100%', opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 32 }} style={{ position: 'absolute', inset: 0 }}>
+            <motion.div key="recipe-view" initial={{ x: '100%', opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: '100%', opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 32 }} style={{ position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
               <Suspense fallback={<SkeletonHero />}>
                 <RecipeResult
                   recipe={selectedRecipe}

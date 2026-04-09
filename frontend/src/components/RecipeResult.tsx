@@ -14,7 +14,6 @@ import {
     Pause,
     Play,
     RotateCcw,
-    Scaling,
     ScanEye,
     Share2,
     Users,
@@ -917,7 +916,6 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                             <button type="button" className="flex w-full items-center justify-between gap-3 text-right p-4 md:p-5" onClick={() => setIsScaleAccordionOpen(!isScaleAccordionOpen)}>
                                 <div>
                                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#236eff]">
-                                        <Scaling size={15} />
                                         התאמות חכמות
                                     </div>
                                     <div className="mt-1.5 text-[14px] md:text-[15px] font-medium text-slate-900">הכמויות מחושבות לפי {formatServingsLabel(desiredServings)}</div>
@@ -925,7 +923,7 @@ export const RecipeResult = ({ recipe, onBack, onSave }: RecipeResultProps) => {
                                         {measureMode === 'home' ? 'מוצג בכוסות וכפות' : 'תצוגה מקורית'}
                                     </div>
                                 </div>
-                                <div className={'mt-1 flex items-center justify-center rounded-full transition-all duration-300 ' + (isScaleAccordionOpen ? 'bg-[#236eff] text-white p-2.5' : 'bg-white text-[#236eff] p-2.5 shadow-sm border border-[#236eff]/20 hover:scale-105')}>
+                                <div className="mt-1 flex items-center justify-center text-slate-500 transition-all duration-300">
                                     {isScaleAccordionOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                                 </div>
                             </button>
