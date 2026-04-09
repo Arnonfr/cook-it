@@ -39,6 +39,10 @@ jobs:
         working-directory: ./cookit-native
         run: npx expo prebuild --platform android
 
+      - name: Patch bundleInDebug
+        working-directory: ./cookit-native
+        run: sed -i.bak 's/bundleCommand = "export:embed"/bundleCommand = "export:embed"\n    bundleInDebug = true/g' android/app/build.gradle
+
       - name: Build Debug APK
         working-directory: ./cookit-native/android
         run: ./gradlew assembleDebug
