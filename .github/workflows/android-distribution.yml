@@ -29,67 +29,48 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: cookit-native/package-lock.json
 
-      - name: Install Frontend Dependencies
-        working-directory: ./frontend
-        run: npm ci
+      - name: Install Native Dependencies
+        working-directory: ./cookit-native
+        run: npm install
 
-      - name: Build Frontend
-        working-directory: ./frontend
-        run: npm run build
-        env:
-          VITE_API_BASE_URL: https://cook-it-29ua.onrender.com/api
-
-      - name: Sync Capacitor
-        working-directory: ./frontend
-        run: npx cap sync android
-
-      - name: Run Unit Tests
-        working-directory: ./frontend/android
-        run: ./gradlew testDebugUnitTest --continue || true
+      - name: Expo Prebuild
+        working-directory: ./cookit-native
+        run: npx expo prebuild --platform android
 
       - name: Build Debug APK
-        working-directory: ./frontend/android
+        working-directory: ./cookit-native/android
         run: ./gradlew assembleDebug
 
       - name: Verify APK
         run: |
-          ls -lh frontend/android/app/build/outputs/apk/debug/
-          file frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          ls -lh cookit-native/android/app/build/outputs/apk/debug/
+          file cookit-native/android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          path: cookit-native/android/app/build/outputs/apk/debug/app-debug.apk
 
       # Firebase Distribution
       - name: Distribute to Firebase
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: 1:629153402724:android:fb933cd078c975a42c3471
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           testers: arnon7700@gmail.com
-          file: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          file: cookit-native/android/app/build/outputs/apk/debug/app-debug.apk
           releaseNotes: |
-            CookIt v1.1.0 — Build ${{ github.run_number }}
+            CookIt Native App (React Native Preview) — Build ${{ github.run_number }}
 
             ✨ חדש:
-            - אייקון אפליקציה חדש (לוגו ירוק עם האות C)
-            - חסימת אתרים — תפריט 3 נקודות על כל תוצאת חיפוש
-            - תרגום מתכונים לעברית — תיקון קאש לא תקין
-
-            🔍 שיפורי חיפוש:
-            - סינון יוטיוב / פייסבוק / אינסטגרם מהתוצאות
-            - סינון דפי רשימות-מתכונים (5 עוגיות שתוכלו...)
-            - תמונות אמיתיות של המתכון בכל תוצאה
-            - תוצאות מאתרים בינלאומיים
-
-            🎨 שיפורי UI:
-            - כפתורי פעולה בשורה אופקית בתוך המתכון
-            - לחיצה על טיימר לא מסמנת שלב כהושלם
+            - פיתוח ב-React Native לביצועים מרביים (גרסת בטא ראשונה)
+            - UI חדש ומרענן בעל חוויית משתמש חלקה
+            - תמיכה מובנית ב-Share Intents של המערכת
+            - חיפוש מהיר וחלק
 
   build-release:
     runs-on: ubuntu-latest
@@ -113,31 +94,25 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: cookit-native/package-lock.json
 
-      - name: Install Frontend Dependencies
-        working-directory: ./frontend
-        run: npm ci
+      - name: Install Native Dependencies
+        working-directory: ./cookit-native
+        run: npm install
 
-      - name: Build Frontend
-        working-directory: ./frontend
-        run: npm run build
-        env:
-          VITE_API_BASE_URL: https://cook-it-29ua.onrender.com/api
-
-      - name: Sync Capacitor
-        working-directory: ./frontend
-        run: npx cap sync android
+      - name: Expo Prebuild
+        working-directory: ./cookit-native
+        run: npx expo prebuild --platform android
 
       - name: Build Release APK
-        working-directory: ./frontend/android
+        working-directory: ./cookit-native/android
         run: ./gradlew assembleRelease
 
       - name: Sign Release APK
         uses: r0adkll/sign-android-release@v1
         id: sign_app
         with:
-          releaseDirectory: frontend/android/app/build/outputs/apk/release
+          releaseDirectory: cookit-native/android/app/build/outputs/apk/release
           signingKeyBase64: ${{ secrets.SIGNING_KEY_BASE64 }}
           alias: ${{ secrets.ALIAS }}
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
@@ -156,4 +131,4 @@ jobs:
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           testers: arnon7700@gmail.com
           file: ${{ steps.sign_app.outputs.signedReleaseFile }}
-          releaseNotes: "CookIt Release ${{ github.ref_name }}"
+          releaseNotes: "CookIt Native Release ${{ github.ref_name }}"
